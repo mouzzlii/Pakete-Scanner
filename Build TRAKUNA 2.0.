@@ -2,6 +2,9 @@
 name: Build TRAKUNA 2.0
 
 on:
+  push:
+    paths:
+      - '.github/workflows/trakuna-2.0.yml'
   workflow_dispatch:
 
 permissions:
@@ -29,11 +32,16 @@ jobs:
       - name: Android SDK einrichten
         uses: android-actions/setup-android@v3
 
-      - name: Android-Projekt erstellen
+      - name: Android Lizenzen und Pakete installieren
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Android Projekt erstellen
         shell: bash
         run: |
           mkdir -p app/src/main/java/at/trakuna/app
-          mkdir -p app/src/main/res/values
 
           cat > settings.gradle.kts <<'EOF'
           pluginManagement {
@@ -96,7 +104,6 @@ jobs:
               implementation(platform("androidx.compose:compose-bom:2024.10.01"))
               implementation("androidx.activity:activity-compose:1.9.3")
               implementation("androidx.compose.ui:ui")
-              implementation("androidx.compose.ui:ui-tooling-preview")
               implementation("androidx.compose.material3:material3")
               implementation("androidx.compose.foundation:foundation")
               implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
@@ -127,24 +134,23 @@ jobs:
           cat > app/src/main/java/at/trakuna/app/MainActivity.kt <<'EOF'
           package at.trakuna.app
 
+          import android.content.Context
           import android.os.Bundle
           import androidx.activity.ComponentActivity
           import androidx.activity.compose.setContent
-          import androidx.compose.foundation.background
+          import androidx.compose.foundation.clickable
           import androidx.compose.foundation.layout.*
           import androidx.compose.foundation.lazy.LazyColumn
           import androidx.compose.foundation.lazy.items
           import androidx.compose.foundation.shape.RoundedCornerShape
-          import androidx.compose.foundation.text.KeyboardOptions
           import androidx.compose.material3.*
           import androidx.compose.runtime.*
-          import androidx.compose.ui.Alignment
           import androidx.compose.ui.Modifier
           import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.platform.LocalContext
+          import androidx.compose.ui.text.font.FontWeight
           import androidx.compose.ui.unit.dp
           import androidx.compose.ui.unit.sp
-          import androidx.compose.ui.text.font.FontWeight
-          import androidx.compose.ui.text.input.KeyboardType
           import com.google.android.gms.mlkit.codescanner.GmsBarcodeScanning
           import org.json.JSONArray
           import org.json.JSONObject
@@ -153,357 +159,349 @@ jobs:
           import java.util.Locale
           import kotlin.random.Random
 
-          private val Forest = Color(0xFF174D39)
-          private val Pale = Color(0xFFF1F5F2)
+          private val Wald = Color(0xFF174D39)
+          private val Hintergrund = Color(0xFFF1F5F2)
 
-          data class Parcel(
+          data class Sendung(
               val id: String,
-              val code: String,
-              val carrier: String,
-              val customer: String,
-              val type: String,
+              val nummer: String,
+              val dienst: String,
+              val kunde: String,
+              val vorgang: String,
               val status: String,
               val pin: String,
-              val time: Long
+              val zeit: Long
           )
 
           class MainActivity : ComponentActivity() {
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
-                  setContent { TrakunaApp() }
+                  setContent { Trakuna() }
+              }
+          }
+
+          @Composable
+          fun Trakuna() {
+              val context = LocalContext.current
+              val prefs = remember {
+                  context.getSharedPreferences("trakuna", Context.MODE_PRIVATE)
+              }
+              val sendungen = remember {
+                  mutableStateListOf<Sendung>().apply {
+                      addAll(laden(prefs.getString("daten", "[]") ?: "[]"))
+                  }
               }
 
-              @Composable
-              private fun TrakunaApp() {
-                  val prefs = remember { getSharedPreferences("trakuna_data", MODE_PRIVATE) }
-                  val parcels = remember {
-                      mutableStateListOf<Parcel>().apply {
-                          addAll(readParcels(prefs.getString("parcels", "[]") ?: "[]"))
+              var seite by remember { mutableStateOf("start") }
+              var vorgang by remember { mutableStateOf("Annahme") }
+              var formular by remember { mutableStateOf(false) }
+              var nummer by remember { mutableStateOf("") }
+              var dienst by remember { mutableStateOf("Unbekannt") }
+              var kunde by remember { mutableStateOf("") }
+              var suche by remember { mutableStateOf("") }
+              var meldung by remember { mutableStateOf("") }
+
+              fun speichern() {
+                  prefs.edit().putString("daten", speichernJson(sendungen)).apply()
+              }
+
+              fun formularOeffnen(art: String, scan: String = "") {
+                  vorgang = art
+                  nummer = scan
+                  dienst = "Unbekannt"
+                  kunde = ""
+                  meldung = ""
+                  formular = true
+              }
+
+              fun ausfuehren() {
+                  val eingabe = nummer.trim()
+                  if (eingabe.isBlank()) {
+                      meldung = "Bitte Nummer eingeben."
+                      return
+                  }
+
+                  if (vorgang == "Abholung") {
+                      val index = sendungen.indexOfFirst {
+                          it.nummer.equals(eingabe, true) || it.pin == eingabe
                       }
-                  }
-
-                  var page by remember { mutableStateOf("home") }
-                  var formType by remember { mutableStateOf("Annahme") }
-                  var showForm by remember { mutableStateOf(false) }
-                  var code by remember { mutableStateOf("") }
-                  var carrier by remember { mutableStateOf("Unbekannt") }
-                  var customer by remember { mutableStateOf("") }
-                  var note by remember { mutableStateOf("") }
-                  var message by remember { mutableStateOf("") }
-                  var search by remember { mutableStateOf("") }
-
-                  fun persist() {
-                      prefs.edit().putString("parcels", writeParcels(parcels)).apply()
-                  }
-
-                  fun openForm(type: String, scanned: String = "") {
-                      formType = type
-                      code = scanned
-                      carrier = "Unbekannt"
-                      customer = ""
-                      note = ""
-                      message = ""
-                      showForm = true
-                  }
-
-                  fun saveOperation() {
-                      val entered = code.trim()
-                      if (entered.isBlank()) {
-                          message = "Bitte Sendungsnummer oder Abhol-PIN eingeben."
+                      if (index == -1) {
+                          meldung = "Sendung nicht gefunden."
                           return
                       }
-
-                      if (formType == "Abholung") {
-                          val index = parcels.indexOfFirst {
-                              it.code.equals(entered, true) || it.pin == entered
-                          }
-                          if (index < 0) {
-                              message = "Keine passende Sendung gefunden."
-                              return
-                          }
-                          if (parcels[index].status == "Abgeholt") {
-                              message = "Diese Sendung wurde bereits abgeholt."
-                              return
-                          }
-                          parcels[index] = parcels[index].copy(status = "Abgeholt")
-                          persist()
-                          message = "Abholung lokal dokumentiert."
-                          showForm = false
+                      if (sendungen[index].status == "Abgeholt") {
+                          meldung = "Bereits abgeholt."
                           return
                       }
-
-                      val pin = if (formType == "Annahme") {
-                          Random.nextInt(1000, 10000).toString()
-                      } else ""
-
-                      val status = when (formType) {
-                          "Annahme" -> "Eingelagert"
-                          "Retoure" -> "Zur Übergabe bereit"
-                          else -> "Versand vorgemerkt"
-                      }
-
-                      parcels.add(
-                          0,
-                          Parcel(
-                              System.currentTimeMillis().toString(),
-                              entered,
-                              carrier,
-                              customer.trim(),
-                              formType,
-                              status,
-                              pin,
-                              System.currentTimeMillis()
-                          )
-                      )
-                      persist()
-                      message = if (pin.isNotEmpty()) {
-                          "Lokal gespeichert. Abhol-PIN: $pin"
-                      } else {
-                          "Vorgang lokal gespeichert."
-                      }
-                      showForm = false
+                      sendungen[index] = sendungen[index].copy(status = "Abgeholt")
+                      speichern()
+                      formular = false
+                      meldung = "Abholung lokal gespeichert."
+                      return
                   }
 
-                  MaterialTheme(
-                      colorScheme = lightColorScheme(
-                          primary = Forest,
-                          secondary = Color(0xFF71947D),
-                          background = Pale,
-                          surface = Color.White
+                  val pin = if (vorgang == "Annahme") {
+                      Random.nextInt(1000, 10000).toString()
+                  } else ""
+
+                  val status = when (vorgang) {
+                      "Annahme" -> "Eingelagert"
+                      "Retoure" -> "Zur Übergabe bereit"
+                      else -> "Versand vorgemerkt"
+                  }
+
+                  sendungen.add(
+                      0,
+                      Sendung(
+                          System.currentTimeMillis().toString(),
+                          eingabe,
+                          dienst,
+                          kunde,
+                          vorgang,
+                          status,
+                          pin,
+                          System.currentTimeMillis()
                       )
+                  )
+                  speichern()
+                  formular = false
+                  meldung = if (pin.isNotEmpty()) {
+                      "Gespeichert. Abhol-PIN: $pin"
+                  } else {
+                      "Vorgang lokal gespeichert."
+                  }
+              }
+
+              MaterialTheme(
+                  colorScheme = lightColorScheme(
+                      primary = Wald,
+                      background = Hintergrund,
+                      surface = Color.White
+                  )
+              ) {
+                  Surface(
+                      modifier = Modifier.fillMaxSize(),
+                      color = Hintergrund
                   ) {
-                      Surface(
-                          modifier = Modifier.fillMaxSize(),
-                          color = Pale
-                      ) {
-                          Column(
-                              modifier = Modifier
-                                  .fillMaxSize()
-                                  .padding(16.dp)
-                          ) {
-                              Row(
-                                  modifier = Modifier.fillMaxWidth(),
-                                  verticalAlignment = Alignment.CenterVertically
+                      Column(Modifier.fillMaxSize().padding(16.dp)) {
+                          Text(
+                              "TRAKUNA",
+                              fontSize = 29.sp,
+                              fontWeight = FontWeight.Bold,
+                              color = Wald
+                          )
+                          Text(
+                              "ALLE PAKETDIENSTE. EIN SMARTPHONE.",
+                              fontSize = 10.sp,
+                              color = Wald
+                          )
+                          Spacer(Modifier.height(22.dp))
+
+                          if (seite == "start") {
+                              Text(
+                                  "Paketshop-Zentrale",
+                                  fontSize = 22.sp,
+                                  fontWeight = FontWeight.Bold
+                              )
+                              Text("Was möchtest du erledigen?")
+                              Spacer(Modifier.height(16.dp))
+
+                              Button(
+                                  onClick = {
+                                      GmsBarcodeScanning.getClient(context)
+                                          .startScan()
+                                          .addOnSuccessListener {
+                                              formularOeffnen("Annahme", it.rawValue ?: "")
+                                          }
+                                          .addOnFailureListener {
+                                              formularOeffnen("Annahme")
+                                              meldung = "Scan nicht verfügbar. Nummer manuell eingeben."
+                                          }
+                                  },
+                                  modifier = Modifier.fillMaxWidth().height(60.dp)
                               ) {
-                                  Column(modifier = Modifier.weight(1f)) {
-                                      Text(
-                                          "TRAKUNA",
-                                          fontSize = 28.sp,
-                                          fontWeight = FontWeight.Bold,
-                                          color = Forest
-                                      )
-                                      Text(
-                                          "ALLE PAKETDIENSTE. EIN SMARTPHONE.",
-                                          fontSize = 10.sp,
-                                          color = Forest
-                                      )
-                                  }
-                                  TextButton(onClick = { page = "home" }) {
-                                      Text("START")
-                                  }
+                                  Text("PAKET SCANNEN", fontSize = 18.sp)
                               }
 
-                              Spacer(Modifier.height(18.dp))
+                              Spacer(Modifier.height(12.dp))
+                              Aktion("ANNAHME", "Sendung entgegennehmen") {
+                                  formularOeffnen("Annahme")
+                              }
+                              Aktion("ABHOLUNG", "Sendung an Kunden ausgeben") {
+                                  formularOeffnen("Abholung")
+                              }
+                              Aktion("RETOURE", "Retoure entgegennehmen") {
+                                  formularOeffnen("Retoure")
+                              }
+                              Aktion("VERSAND", "Versand vormerken") {
+                                  formularOeffnen("Versand")
+                              }
 
-                              if (page == "home") {
-                                  Text("Paketshop-Zentrale", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                                  Text("Was möchtest du erledigen?", color = Color.DarkGray)
-                                  Spacer(Modifier.height(16.dp))
-
-                                  Button(
-                                      onClick = {
-                                          GmsBarcodeScanning.getClient(this@MainActivity)
-                                              .startScan()
-                                              .addOnSuccessListener { result ->
-                                                  openForm("Annahme", result.rawValue ?: "")
-                                              }
-                                              .addOnFailureListener {
-                                                  message = "Scanner nicht verfügbar. Bitte Nummer manuell eingeben."
-                                                  openForm("Annahme")
-                                              }
-                                      },
-                                      modifier = Modifier.fillMaxWidth().height(64.dp),
-                                      shape = RoundedCornerShape(16.dp)
-                                  ) {
-                                      Text("▦  PAKET SCANNEN", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                              Spacer(Modifier.height(12.dp))
+                              Card(Modifier.fillMaxWidth()) {
+                                  Column(Modifier.padding(16.dp)) {
+                                      Text("ÜBERSICHT", color = Wald, fontWeight = FontWeight.Bold)
+                                      Text("Erfasste Vorgänge: ${sendungen.size}")
+                                      Text("Noch nicht abgeholt: ${sendungen.count { it.status != "Abgeholt" }}")
                                   }
-
-                                  Spacer(Modifier.height(14.dp))
-
-                                  ActionButton("ANNAHME", "Sendung entgegennehmen") { openForm("Annahme") }
-                                  ActionButton("ABHOLUNG", "Sendung an Kunden ausgeben") { openForm("Abholung") }
-                                  ActionButton("RETOURE", "Retoure entgegennehmen") { openForm("Retoure") }
-                                  ActionButton("VERSAND", "Ausgehenden Versand vormerken") { openForm("Versand") }
-
-                                  Spacer(Modifier.height(14.dp))
-                                  Card(
-                                      modifier = Modifier.fillMaxWidth(),
-                                      colors = CardDefaults.cardColors(containerColor = Color.White)
-                                  ) {
-                                      Column(Modifier.padding(16.dp)) {
-                                          Text("HEUTE IM ÜBERBLICK", fontWeight = FontWeight.Bold, color = Forest)
-                                          Spacer(Modifier.height(8.dp))
-                                          Text("Erfasste Vorgänge: ${parcels.size}")
-                                          Text("Noch nicht abgeholt: ${parcels.count { it.status != "Abgeholt" }}")
+                              }
+                              Spacer(Modifier.height(10.dp))
+                              OutlinedButton(
+                                  onClick = { seite = "liste" },
+                                  modifier = Modifier.fillMaxWidth()
+                              ) {
+                                  Text("ALLE SENDUNGEN ANZEIGEN")
+                              }
+                          } else {
+                              Text("Sendungsübersicht", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                              OutlinedTextField(
+                                  value = suche,
+                                  onValueChange = { suche = it },
+                                  label = { Text("Nummer, PIN oder Kunde suchen") },
+                                  modifier = Modifier.fillMaxWidth(),
+                                  singleLine = true
+                              )
+                              Spacer(Modifier.height(8.dp))
+                              LazyColumn(
+                                  modifier = Modifier.weight(1f),
+                                  verticalArrangement = Arrangement.spacedBy(8.dp)
+                              ) {
+                                  items(sendungen.filter {
+                                      it.nummer.contains(suche, true) ||
+                                      it.kunde.contains(suche, true) ||
+                                      it.pin.contains(suche, true)
+                                  }, key = { it.id }) { s ->
+                                      Card(Modifier.fillMaxWidth()) {
+                                          Column(Modifier.padding(12.dp)) {
+                                              Text(s.nummer, color = Wald, fontWeight = FontWeight.Bold)
+                                              Text("${s.vorgang} • ${s.dienst}")
+                                              if (s.kunde.isNotBlank()) Text("Kunde: ${s.kunde}")
+                                              Text("Status: ${s.status}")
+                                              if (s.pin.isNotBlank()) Text("Abhol-PIN: ${s.pin}")
+                                              Text(
+                                                  SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY)
+                                                      .format(Date(s.zeit))
+                                              )
+                                          }
                                       }
                                   }
-                                  Spacer(Modifier.height(8.dp))
-                                  OutlinedButton(
-                                      onClick = { page = "list" },
-                                      modifier = Modifier.fillMaxWidth()
-                                  ) {
-                                      Text("SENDUNGSÜBERSICHT  (${parcels.size})")
-                                  }
-                              } else {
-                                  Text("Sendungsübersicht", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                                  Spacer(Modifier.height(10.dp))
+                              }
+                              OutlinedButton(
+                                  onClick = { seite = "start" },
+                                  modifier = Modifier.fillMaxWidth()
+                              ) {
+                                  Text("ZURÜCK")
+                              }
+                          }
+
+                          if (meldung.isNotBlank()) {
+                              Spacer(Modifier.height(8.dp))
+                              Text(meldung, color = Wald)
+                          }
+                      }
+                  }
+
+                  if (formular) {
+                      AlertDialog(
+                          onDismissRequest = { formular = false },
+                          title = { Text(vorgang) },
+                          text = {
+                              Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                   OutlinedTextField(
-                                      value = search,
-                                      onValueChange = { search = it },
-                                      label = { Text("Sendungsnummer oder Kunde suchen") },
-                                      modifier = Modifier.fillMaxWidth(),
+                                      value = nummer,
+                                      onValueChange = { nummer = it },
+                                      label = {
+                                          Text(
+                                              if (vorgang == "Abholung")
+                                                  "Sendungsnummer oder Abhol-PIN"
+                                              else "Sendungsnummer / Barcode"
+                                          )
+                                      },
                                       singleLine = true
                                   )
-                                  Spacer(Modifier.height(8.dp))
-                                  LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                      items(
-                                          parcels.filter {
-                                              it.code.contains(search, true) ||
-                                              it.customer.contains(search, true) ||
-                                              it.pin.contains(search, true)
-                                          },
-                                          key = { it.id }
-                                      ) { parcel ->
-                                          Card(modifier = Modifier.fillMaxWidth()) {
-                                              Column(Modifier.padding(12.dp)) {
-                                                  Text(parcel.code, fontWeight = FontWeight.Bold, color = Forest)
-                                                  Text("${parcel.type} • ${parcel.carrier}")
-                                                  if (parcel.customer.isNotBlank()) Text("Kunde: ${parcel.customer}")
-                                                  Text("Status: ${parcel.status}")
-                                                  if (parcel.pin.isNotBlank()) Text("Abhol-PIN: ${parcel.pin}")
-                                                  Text(
-                                                      SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY)
-                                                          .format(Date(parcel.time)),
-                                                      fontSize = 12.sp,
-                                                      color = Color.Gray
-                                                  )
-                                              }
-                                          }
-                                      }
+                                  if (vorgang != "Abholung") {
+                                      OutlinedTextField(
+                                          value = dienst,
+                                          onValueChange = { dienst = it },
+                                          label = { Text("Paketdienst") },
+                                          singleLine = true
+                                      )
+                                      OutlinedTextField(
+                                          value = kunde,
+                                          onValueChange = { kunde = it },
+                                          label = { Text("Kundenname (optional)") },
+                                          singleLine = true
+                                      )
                                   }
-                                  Spacer(Modifier.height(8.dp))
-                                  OutlinedButton(
-                                      onClick = { page = "home" },
-                                      modifier = Modifier.fillMaxWidth()
-                                  ) { Text("ZURÜCK") }
+                                  if (meldung.isNotBlank()) Text(meldung, color = Color.Red)
                               }
-
-                              if (message.isNotBlank()) {
-                                  Spacer(Modifier.height(8.dp))
-                                  Text(message, color = Forest)
+                          },
+                          confirmButton = {
+                              Button(onClick = { ausfuehren() }) {
+                                  Text("SPEICHERN")
+                              }
+                          },
+                          dismissButton = {
+                              TextButton(onClick = { formular = false }) {
+                                  Text("ABBRECHEN")
                               }
                           }
-
-                          if (showForm) {
-                              AlertDialog(
-                                  onDismissRequest = { showForm = false },
-                                  title = { Text(formType) },
-                                  text = {
-                                      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                          OutlinedTextField(
-                                              value = code,
-                                              onValueChange = { code = it },
-                                              label = {
-                                                  Text(if (formType == "Abholung") "Sendungsnummer oder Abhol-PIN" else "Sendungsnummer / Barcode")
-                                              },
-                                              singleLine = true,
-                                              keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
-                                          )
-                                          if (formType != "Abholung") {
-                                              OutlinedTextField(
-                                                  value = carrier,
-                                                  onValueChange = { carrier = it },
-                                                  label = { Text("Paketdienst (z. B. Post, DHL, DPD, GLS, UPS)") },
-                                                  singleLine = true
-                                              )
-                                              OutlinedTextField(
-                                                  value = customer,
-                                                  onValueChange = { customer = it },
-                                                  label = { Text("Kundenname (optional)") },
-                                                  singleLine = true
-                                              )
-                                              OutlinedTextField(
-                                                  value = note,
-                                                  onValueChange = { note = it },
-                                                  label = { Text("Notiz (optional)") },
-                                                  singleLine = true
-                                              )
-                                          }
-                                      }
-                                  },
-                                  confirmButton = {
-                                      Button(onClick = { saveOperation() }) { Text("SPEICHERN") }
-                                  },
-                                  dismissButton = {
-                                      TextButton(onClick = { showForm = false }) { Text("ABBRECHEN") }
-                                  }
-                              )
-                          }
-                      }
+                      )
                   }
               }
+          }
 
-              @Composable
-              private fun ActionButton(title: String, subtitle: String, onClick: () -> Unit) {
-                  Card(
-                      modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                      shape = RoundedCornerShape(14.dp),
-                      colors = CardDefaults.cardColors(containerColor = Color.White),
-                      onClick = onClick
-                  ) {
-                      Column(Modifier.padding(horizontal = 16.dp, vertical = 13.dp)) {
-                          Text(title, color = Forest, fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                          Text(subtitle, color = Color.DarkGray, fontSize = 12.sp)
-                      }
+          @Composable
+          fun Aktion(titel: String, untertitel: String, klick: () -> Unit) {
+              Card(
+                  modifier = Modifier
+                      .fillMaxWidth()
+                      .padding(vertical = 4.dp)
+                      .clickable { klick() },
+                  shape = RoundedCornerShape(14.dp)
+              ) {
+                  Column(Modifier.padding(15.dp)) {
+                      Text(titel, color = Wald, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                      Text(untertitel, fontSize = 12.sp)
                   }
               }
+          }
 
-              private fun writeParcels(items: List<Parcel>): String {
-                  val array = JSONArray()
-                  items.forEach { p ->
-                      array.put(JSONObject().apply {
-                          put("id", p.id)
-                          put("code", p.code)
-                          put("carrier", p.carrier)
-                          put("customer", p.customer)
-                          put("type", p.type)
-                          put("status", p.status)
-                          put("pin", p.pin)
-                          put("time", p.time)
-                      })
-                  }
-                  return array.toString()
+          fun speichernJson(liste: List<Sendung>): String {
+              val array = JSONArray()
+              liste.forEach {
+                  array.put(JSONObject().apply {
+                      put("id", it.id)
+                      put("nummer", it.nummer)
+                      put("dienst", it.dienst)
+                      put("kunde", it.kunde)
+                      put("vorgang", it.vorgang)
+                      put("status", it.status)
+                      put("pin", it.pin)
+                      put("zeit", it.zeit)
+                  })
               }
+              return array.toString()
+          }
 
-              private fun readParcels(raw: String): List<Parcel> {
-                  return try {
-                      val array = JSONArray(raw)
-                      (0 until array.length()).map { i ->
-                          val o = array.getJSONObject(i)
-                          Parcel(
-                              o.optString("id"),
-                              o.optString("code"),
-                              o.optString("carrier"),
-                              o.optString("customer"),
-                              o.optString("type"),
-                              o.optString("status"),
-                              o.optString("pin"),
-                              o.optLong("time")
-                          )
-                      }
-                  } catch (_: Exception) {
-                      emptyList()
+          fun laden(raw: String): List<Sendung> {
+              return try {
+                  val array = JSONArray(raw)
+                  (0 until array.length()).map {
+                      val o = array.getJSONObject(it)
+                      Sendung(
+                          o.optString("id"),
+                          o.optString("nummer"),
+                          o.optString("dienst"),
+                          o.optString("kunde"),
+                          o.optString("vorgang"),
+                          o.optString("status"),
+                          o.optString("pin"),
+                          o.optLong("zeit")
+                      )
                   }
+              } catch (_: Exception) {
+                  emptyList()
               }
           }
           EOF
@@ -511,7 +509,7 @@ jobs:
       - name: APK bauen
         run: gradle --no-daemon assembleDebug
 
-      - name: APK bereitstellen
+      - name: APK zum Herunterladen bereitstellen
         uses: actions/upload-artifact@v4
         with:
           name: TRAKUNA-2.0-Android
