@@ -7,9 +7,6 @@ on:
       - phoenix-rebuild
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 jobs:
   build:
     name: Android APK bauen
@@ -23,27 +20,29 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: 17
 
       - name: Android SDK einrichten
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Android SDK installieren
         run: |
           yes | sdkmanager --licenses
-          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Gradle einrichten
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
 
       - name: TRAKUNA bauen
-        run: gradle assembleDebug
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug
 
       - name: APK bereitstellen
         uses: actions/upload-artifact@v4
         with:
           name: TRAKUNA-2.0-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
