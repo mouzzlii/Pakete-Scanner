@@ -32,13 +32,14 @@ jobs:
           yes | sdkmanager --licenses
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Gradle einrichten
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: TRAKUNA bauen
+      - name: Gradle 8.9 installieren
         run: |
-          chmod +x ./gradlew
-          ./gradlew assembleDebug
+          curl -L https://services.gradle.org/distributions/gradle-8.9-bin.zip -o gradle.zip
+          unzip -q gradle.zip
+          echo "$GITHUB_WORKSPACE/gradle-8.9/bin" >> "$GITHUB_PATH"
+
+      - name: TRAKUNA APK bauen
+        run: gradle assembleDebug
 
       - name: APK bereitstellen
         uses: actions/upload-artifact@v4
