@@ -82,7 +82,8 @@ document.getElementById("saveParcel").addEventListener("click",()=>{
 });
 function renderParcels(){const root=document.getElementById("parcelList");if(!root)return;const q=(document.getElementById("parcelSearch")?.value||"").toLowerCase();const filtered=parcels.filter(p=>[p.code,p.carrier,p.customer,p.pin].some(v=>String(v||"").toLowerCase().includes(q)));if(!filtered.length){root.textContent=parcels.length?"Keine passenden Sendungen.":"Noch keine Sendungen erfasst.";return}root.innerHTML="";filtered.forEach(p=>{const card=document.createElement("div");card.className="status";card.style.marginBottom="8px";const title=document.createElement("strong");title.textContent=p.code+" · "+p.status;const detail=document.createElement("div");detail.textContent=p.type+" · "+p.carrier+(p.customer?" · "+p.customer:"");card.append(title,detail);if(p.note){const n=document.createElement("div");n.textContent="Notiz: "+p.note;card.append(n)}if(p.pin){const pin=document.createElement("div");pin.textContent="Abhol-PIN: "+p.pin;card.append(pin)}const time=document.createElement("small");time.textContent=new Date(p.time).toLocaleString("de-AT");card.append(time);root.append(card)})}
 document.getElementById("parcelSearch").addEventListener("input",renderParcels);
-\nconst video=document.getElementById("scannerVideo"),scanResult=document.getElementById("scanResult"),choice=document.getElementById("manualChoice"),select=document.getElementById("providerChoice");
+
+const video=document.getElementById("scannerVideo"),scanResult=document.getElementById("scanResult"),choice=document.getElementById("manualChoice"),select=document.getElementById("providerChoice");
 let stream=null,scanTimer=null,detector=null;
 function identifyCarrier(raw){
  const value=String(raw||"").trim(),upper=value.toUpperCase(),compact=upper.replace(/[\s-]/g,"");
