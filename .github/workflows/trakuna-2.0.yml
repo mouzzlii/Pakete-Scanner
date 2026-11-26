@@ -29,6 +29,12 @@ jobs:
       - name: Android SDK einrichten
         uses: android-actions/setup-android@v3
 
+      - name: Android SDK-Lizenzen akzeptieren und Plattform installieren
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
       - name: Android-Projekt erstellen
         shell: bash
         run: |
