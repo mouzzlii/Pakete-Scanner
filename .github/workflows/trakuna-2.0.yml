@@ -37,7 +37,15 @@ jobs:
       - name: Android SDK-Lizenzen akzeptieren und Plattform installieren
         shell: bash
         run: |
+          # sdkmanager schließt die Eingabe-Pipe nach erfolgreicher Lizenzannahme.
+          # pipefail würde dadurch den erwarteten SIGPIPE von "yes" fälschlich als Fehler werten.
+          set +o pipefail
           yes | sdkmanager --licenses
+          license_status=${PIPESTATUS[1]}
+          set -o pipefail
+          if [ "$license_status" -ne 0 ]; then
+            exit "$license_status"
+          fi
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Android-Projekt erstellen
