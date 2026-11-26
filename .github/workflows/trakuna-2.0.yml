@@ -173,7 +173,7 @@ jobs:
           import androidx.compose.ui.unit.sp
           import androidx.compose.ui.text.font.FontWeight
           import androidx.compose.ui.text.input.KeyboardType
-          import com.google.android.gms.mlkit.codescanner.GmsBarcodeScanning
+          import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
           import org.json.JSONArray
           import org.json.JSONObject
           import java.text.SimpleDateFormat
