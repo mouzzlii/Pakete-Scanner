@@ -1,25 +1,34 @@
-# TRAKUNA Web-Hub – Architektur und Grenzen
+# TRAKUNA – Weiterentwicklung des bestehenden Paketshop-Systems
 
-## Ziel
-Mobile-first Web-Oberfläche als zentrale Start- und Druckdrehscheibe. Fachliche Paketprozesse laufen im Originalportal des jeweiligen Dienstleisters.
+## Leitentscheidung
+Die Web-Oberfläche ersetzt TRAKUNA nicht und darf die bestehende Android-App nicht entkernen. Die ursprünglichen Paketshop-Abläufe bleiben maßgeblich: Annahme, Abholung, Retoure, Versandvormerkung, PIN, Kunden-/Sendungssuche und Sendungsübersicht. Die Web-Version ist ein ergänzender mobiler Ausbau und übernimmt dieselbe Produktlogik.
 
-## MVP-Stand
-- Kamera-Barcode-Scanner über die Browser BarcodeDetector API, sofern Android/Chrome sie unterstützt; manuelle Eingabe als Fallback.
-- Eindeutige Muster (z. B. UPS 1Z und UPU-S10 mit AT) können zum hinterlegten Anbieterportal routen. Mehrdeutige Muster verlangen Bestätigung.
-- Erkennungsregeln sind ein konservativer Startbestand, keine vollständige oder offiziell bestätigte Carrier-Datenbank. Vor Produktivbetrieb mit echten Labels aller Zielanbieter validieren.
-- Anbieterportale werden extern geöffnet; Login und Paketvorgänge bleiben beim Anbieter.
-- Lokale Etikettenauswahl PDF/PNG/JPG und Druckdialog. Keine direkte ZPL-/Zebra-Steuerung.
-- Keine Datenübertragung an einen TRAKUNA-Server; Portalkonfiguration liegt in localStorage.
+## Neue Erweiterungen
+- Kamera-Barcode-Scanner (Browser BarcodeDetector, abhängig von Android-/Chrome-Unterstützung) plus manuelle Eingabe.
+- Anbietererkennung anhand konservativer Barcode-/Sendungsnummernregeln. Eindeutige Muster können automatisch zum hinterlegten Anbieterportal führen; unsichere Formate verlangen Bestätigung.
+- Erkennt der Scanner einen Anbieter, wird dieser zugleich im TRAKUNA-Erfassungsformular vorbelegt.
+- Portaladressen werden pro Anbieter konfiguriert und nur lokal im Browser gespeichert. Keine Zugangsdaten oder Cookies in TRAKUNA.
+- Lokale Etikettenauswahl PDF/PNG/JPG mit Vorschau und Übergabe an den Android-Druckdialog.
 
-## Grenzen und nächste Schritte
-1. Carrier-Regeln anhand repräsentativer, rechtmäßig verfügbarer Etiketten je Anbieter testen und falsche Treffer vermeiden.
-2. Browser-/Android-Kompatibilität des BarcodeDetector und Kamera-Berechtigungen auf realen Geräten testen.
-3. Offizielle Anbieter-APIs/Partnerintegrationen und Bedingungen je Anbieter prüfen; fremde Portale nicht automatisiert auslesen oder fernsteuern.
-4. Zebra-Verbindung mit konkretem Druckermodell, Android-Version und Verbindung (Bluetooth Classic/WLAN/USB) validieren; bei Bedarf native Druckbrücke.
-5. Originaletiketten unverändert drucken; zusätzliche Kennzeichnung nur separat oder mit zulässiger Anbieter-Vorlage.
+## Grenzen
+- Barcode-Formate sind nicht global eindeutig. Die Regeln sind ein Startbestand, keine offiziell bestätigte vollständige Carrier-Datenbank. Falschzuordnungen müssen mit echten, zulässig verwendbaren Labels ausgeschlossen werden.
+- Automatische Portalweiterleitung funktioniert nur, wenn für den erkannten Anbieter eine gültige HTTPS-Adresse hinterlegt ist. Anbieter können Anmeldung, MFA oder spezielle Geschäftskundenportale verlangen.
+- Fremde Portalseiten werden nicht eingebettet, ausgelesen oder automatisiert bedient. Offizielle APIs/Partnerintegrationen müssen pro Anbieter geprüft werden.
+- Der aktuelle Web-Druckdialog ist kein Zebra-Direktdruck und garantiert keine Etikettenmaßstäbe oder ZPL-Übertragung.
+- Keine Daten-Synchronisation zwischen Web und Android-Prototyp; die lokale Demo speichert im jeweiligen Browser.
 
-## Datenschutz
-Keine Zugangsdaten, Session-Cookies oder Sendungsdaten an TRAKUNA übertragen. Nur HTTPS-Portaladressen zulassen. Etiketten bleiben lokal im Browser.
+## Nächste technische Schritte
+1. Gemeinsames Daten-/Funktionsmodell für Android und Web definieren, damit keine doppelte oder widersprüchliche Paketlogik entsteht.
+2. Carrier-Erkennung anhand repräsentativer Labels für DHL, Österreichische Post, DPD, GLS, UPS und weitere relevante Anbieter validieren; Confidence-Stufen und manuelle Korrektur vorsehen.
+3. Anbieterportal-URLs und zulässige Integrationswege anhand offizieller Anbieterquellen verifizieren.
+4. Zebra-Druckpfad mit konkretem Druckermodell und Verbindung (Bluetooth Classic/WLAN/USB) praktisch testen; bei Bedarf native Druckbrücke statt Browser-only.
+5. Erst danach Android-/Web-Synchronisierung und produktive Datenhaltung planen.
+
+## Datenschutz und Sicherheit
+- Keine Anbieterpasswörter, Session-Cookies oder Kundendaten an einen TRAKUNA-Server übertragen.
+- Nur HTTPS-Portaladressen akzeptieren.
+- Lokale Demo-Daten bleiben auf dem Gerät/Browser; keine Behauptung einer Cloud-Sicherung oder Mehrgeräte-Synchronisierung.
+- Originaletiketten und insbesondere Frankierung/Barcodes nicht verändern.
 
 ## Status
-Lokaler Web-Prototyp; keine Live-Anbieterintegration und kein nachgewiesener Zebra-Direktdruck. Kamera und reale Etiketten sind noch nicht auf dem Android-Gerät getestet.
+Der Web-Prototyp enthält wieder die ursprünglichen Paketshop-Kernabläufe als lokale Demo sowie Barcode-Erkennung, Anbieter-Routing und Etikettenübergabe. Er ist nicht mit der Android-Datenhaltung synchronisiert. Kamera, reale Carrier-Barcodes, Portaladressen und Zebra-Direktdruck sind noch nicht auf dem Android-Gerät praktisch getestet.
