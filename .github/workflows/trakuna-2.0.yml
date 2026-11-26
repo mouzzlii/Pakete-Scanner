@@ -207,9 +207,9 @@ jobs:
                   val normalized = raw.trim().uppercase(Locale.ROOT).replace(" ", "").replace("-", "")
                   return when {
                       Regex("^1Z[A-Z0-9]{16}$").matches(normalized) -> "UPS"
-                      Regex("^[A-Z]{2}\\\\d{9}AT$").matches(normalized) -> "Österreichische Post"
-                      Regex("^\\\\d{14}$").matches(normalized) -> "DPD (bitte prüfen)"
-                      Regex("^(JD|JV|JJ)\\\\d{10,22}$").matches(normalized) -> "DHL (bitte prüfen)"
+                      Regex("^[A-Z]{2}\\d{9}AT$").matches(normalized) -> "Österreichische Post"
+                      Regex("^\\d{14}$").matches(normalized) -> "DPD (bitte prüfen)"
+                      Regex("^(JD|JV|JJ)\\d{10,22}$").matches(normalized) -> "DHL (bitte prüfen)"
                       else -> "Unbekannt"
                   }
               }
