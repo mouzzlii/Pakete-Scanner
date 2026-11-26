@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#174d39"><meta name="description" content="TRAKUNA – Anbieterportale und Paketetiketten zentral am Handy verwalten.">
+<title>TRAKUNA – Versandzentrale</title>
+<style>
+:root{color-scheme:light;--forest:#174d39;--forest2:#24634a;--gold:#c6a45b;--ink:#1d2923;--muted:#68766e;--paper:#f3f6f3;--line:#dce5de}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{background:linear-gradient(125deg,var(--forest),#103628);color:white;padding:22px max(18px,calc((100vw - 850px)/2));border-bottom:3px solid var(--gold)}
+.brand{display:flex;align-items:center;gap:12px}.mark{width:42px;height:42px;border:2px solid var(--gold);border-radius:13px;display:grid;place-items:center;color:var(--gold);font-weight:900;font-size:22px}.brand h1{font-size:23px;letter-spacing:2px;margin:0}.brand small{display:block;color:#d5e2d9;font-size:12px;letter-spacing:.5px}
+main{max-width:850px;margin:0 auto;padding:18px 16px 60px}.intro{margin:8px 0 18px}.intro h2{margin:0 0 5px;font-size:23px}.intro p{margin:0;color:var(--muted)}
+.card{background:white;border:1px solid var(--line);border-radius:18px;padding:17px;margin:14px 0;box-shadow:0 4px 18px #173b2810}
+.card h3{margin:0 0 10px;font-size:17px}.providers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.provider{border:1px solid var(--line);border-radius:13px;padding:13px;text-align:left;background:#fff;color:var(--ink);min-height:76px}
+.provider strong{display:block}.provider small{color:var(--muted)}button,.button{font:inherit;cursor:pointer}
+button.primary{background:var(--forest);color:white;border:0;border-radius:12px;padding:12px 16px;font-weight:650}
+button.secondary{background:white;color:var(--forest);border:1px solid var(--forest);border-radius:12px;padding:10px 13px;font-weight:600}
+button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+label{display:block;font-size:13px;font-weight:650;margin:11px 0 5px}input,textarea,select{width:100%;padding:12px;border:1px solid #cbd8ce;border-radius:10px;font:inherit;background:white;color:var(--ink)}
+.row{display:flex;gap:9px;align-items:center}.row>*{flex:1}.hint{font-size:12px;color:var(--muted)}.status{padding:10px 12px;border-radius:10px;background:#eef4ef;color:var(--forest);font-size:13px;margin-top:10px}
+.hidden{display:none!important}.portal{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.filebox{border:1px dashed #9fb5a5;border-radius:12px;padding:14px;background:#f8fbf8}
+#pdfPreview{width:100%;height:520px;border:1px solid var(--line);border-radius:10px;margin-top:12px}
+footer{max-width:850px;margin:0 auto;padding:0 16px 30px;color:var(--muted);font-size:12px}
+@media(min-width:620px){.providers{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media print{body{background:white}.no-print,header,footer,main>*:not(#printArea){display:none!important}#printArea{display:block!important}}
+</style></head>
+<body>
+<header><div class="brand"><div class="mark">T</div><div><h1>TRAKUNA</h1><small>ANBIETER · SENDUNG · DRUCK</small></div></div></header>
+<main>
+<section class="intro"><h2>Deine Versandzentrale</h2><p>Öffne das Originalportal deines Anbieters. Bearbeite dort den Vorgang und bringe anschließend das originale Etikett zum Druck.</p></section>
+<section class="card" id="providerCard"><h3>1 · Anbieterportal öffnen</h3><div class="providers" id="providers"></div><details style="margin-top:14px"><summary>Anbieterportal hinzufügen oder ändern</summary><label for="providerName">Anbietername</label><input id="providerName" placeholder="z. B. Mein Paketdienst"><label for="providerUrl">Offizielle Portaladresse (HTTPS)</label><input id="providerUrl" type="url" placeholder="https://…"><button class="primary" id="saveProvider" style="margin-top:10px">Portal speichern</button><p class="hint">Die Portaladresse wird nur lokal in diesem Browser gespeichert. TRAKUNA speichert keine Zugangsdaten.</p></details></section>
+<section class="card"><h3>2 · Etikett übernehmen</h3><p class="hint">Nach Abschluss im Anbieterportal das Etikett herunterladen und hier auswählen. Das Original bleibt unverändert.</p><div class="filebox"><label for="labelFile">Etikett auswählen (PDF, PNG oder JPG)</label><input id="labelFile" type="file" accept="application/pdf,image/png,image/jpeg"><div id="fileStatus" class="status hidden"></div></div><div id="previewWrap" class="hidden"><iframe id="pdfPreview" title="Etikettenvorschau"></iframe><div class="row no-print" style="margin-top:10px"><button class="primary" id="printLabel">Über Android drucken</button><button class="secondary" id="clearLabel">Etikett entfernen</button></div><p class="hint">Android zeigt den verfügbaren Druckdialog. Wähle dort deinen Zebra-Drucker, sofern er vom System erkannt wird.</p></div></section>
+<section class="card"><h3>3 · Drucker-Verbindung</h3><p>Diese Web-Version verwendet zunächst den Android-Druckdialog. Eine direkte Zebra-Ansteuerung (Bluetooth/WLAN, ZPL, Etikettengröße und Druckerstatus) benötigt einen kompatiblen Zebra-Druckdienst oder eine native Android-Brücke.</p><div class="status" id="printerStatus">Direktverbindung zum Zebra: noch nicht eingerichtet · Android-Druckdialog: verfügbar, abhängig von installiertem Druckdienst.</div></section>
+<section class="card"><h3>Wichtige Grenzen des ersten Prototyps</h3><ul class="hint"><li>Anbieterportale werden extern geöffnet; Anmeldung und Paketvorgänge bleiben vollständig beim Anbieter.</li><li>TRAKUNA kann fremde Portalseiten nicht automatisch auslesen oder deren interne Druckdaten abfangen.</li><li>Kein Anbieterzugang, keine Sendungsdaten und keine Etiketten werden an einen TRAKUNA-Server übertragen.</li><li>Keine Veränderung von Frankierung, Barcode oder Originaletikett. Zusätzliche Logos oder Daten nur auf separaten Begleit-/Lageretiketten.</li></ul></section>
+<section id="printArea" class="hidden"></section>
+</main>
+<footer>TRAKUNA Web-Konzept · lokale Browser-Demo · Keine echte Anbieterintegration oder direkte Zebra-Steuerung in dieser Version.</footer>
+<script>
+const defaults=[{name:"DHL",url:""},{name:"Österreichische Post",url:""},{name:"DPD",url:""},{name:"GLS",url:""},{name:"UPS",url:""}];
+const key="trakuna.providers.v1";let providers=loadProviders();let currentUrl=null;
+function loadProviders(){try{const v=JSON.parse(localStorage.getItem(key)||"null");return Array.isArray(v)?v:defaults}catch{return defaults}}
+function save(){localStorage.setItem(key,JSON.stringify(providers));render()}
+function render(){const root=document.getElementById("providers");root.innerHTML="";providers.forEach((p,i)=>{const b=document.createElement("button");b.className="provider";const s=document.createElement("strong");s.textContent=p.name;const small=document.createElement("small");small.textContent=p.url?"Portal öffnen ↗":"Portaladresse fehlt";b.append(s,small);b.addEventListener("click",()=>{if(!p.url){document.getElementById("providerName").value=p.name;document.getElementById("providerUrl").focus();return}window.open(p.url,"_blank","noopener,noreferrer")});root.append(b)})}
+document.getElementById("saveProvider").addEventListener("click",()=>{const name=document.getElementById("providerName").value.trim();let url=document.getElementById("providerUrl").value.trim();if(!name||!url){alert("Bitte Anbietername und Portaladresse eingeben.");return}try{const parsed=new URL(url);if(parsed.protocol!=="https:")throw Error();url=parsed.href}catch{alert("Bitte eine gültige HTTPS-Adresse eingeben.");return}const i=providers.findIndex(p=>p.name.toLowerCase()===name.toLowerCase());if(i>=0)providers[i]={name,url};else providers.push({name,url});save();document.getElementById("providerName").value="";document.getElementById("providerUrl").value=""});
+document.getElementById("labelFile").addEventListener("change",e=>{const f=e.target.files?.[0];if(!f)return;if(f.size>15*1024*1024){alert("Datei zu groß (max. 15 MB).");e.target.value="";return}if(currentUrl)URL.revokeObjectURL(currentUrl);currentUrl=URL.createObjectURL(f);const wrap=document.getElementById("previewWrap");wrap.classList.remove("hidden");const frame=document.getElementById("pdfPreview");if(f.type==="application/pdf"){frame.src=currentUrl}else{frame.srcdoc='<body style="margin:0;display:grid;place-items:center;background:#eee"><img style="max-width:100%;max-height:100vh;object-fit:contain" src="'+currentUrl+'"></body>'}const s=document.getElementById("fileStatus");s.textContent=f.name+" · "+Math.round(f.size/1024)+" KB · lokal ausgewählt";s.classList.remove("hidden")});
+document.getElementById("printLabel").addEventListener("click",()=>{if(!currentUrl)return;const f=document.getElementById("labelFile").files?.[0];if(f?.type==="application/pdf"){const w=window.open(currentUrl,"_blank");if(!w){alert("Bitte Pop-ups für diese Website erlauben und erneut versuchen.");return}w.addEventListener("load",()=>w.print())}else{const w=window.open("","_blank");if(!w){alert("Bitte Pop-ups erlauben.");return}w.document.write('<html><body style="margin:0"><img style="width:100%;height:auto" src="'+currentUrl+'"></body></html>');w.document.close();w.focus();setTimeout(()=>w.print(),500)}});
+document.getElementById("clearLabel").addEventListener("click",()=>{if(currentUrl)URL.revokeObjectURL(currentUrl);currentUrl=null;document.getElementById("labelFile").value="";document.getElementById("previewWrap").classList.add("hidden");document.getElementById("fileStatus").classList.add("hidden")});
+render();
+</script></body></html>
