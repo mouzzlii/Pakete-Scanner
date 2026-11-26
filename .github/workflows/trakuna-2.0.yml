@@ -167,6 +167,7 @@ jobs:
               val code: String,
               val carrier: String,
               val customer: String,
+              val note: String,
               val type: String,
               val status: String,
               val pin: String,
@@ -255,6 +256,7 @@ jobs:
                               entered,
                               carrier,
                               customer.trim(),
+                              note.trim(),
                               formType,
                               status,
                               pin,
@@ -324,8 +326,8 @@ jobs:
                                                   openForm("Annahme", result.rawValue ?: "")
                                               }
                                               .addOnFailureListener {
-                                                  message = "Scanner nicht verfügbar. Bitte Nummer manuell eingeben."
                                                   openForm("Annahme")
+                                                  message = "Scanner nicht verfügbar. Bitte Nummer manuell eingeben."
                                               }
                                       },
                                       modifier = Modifier.fillMaxWidth().height(64.dp),
@@ -385,6 +387,7 @@ jobs:
                                                   Text(parcel.code, fontWeight = FontWeight.Bold, color = Forest)
                                                   Text("${parcel.type} • ${parcel.carrier}")
                                                   if (parcel.customer.isNotBlank()) Text("Kunde: ${parcel.customer}")
+                                                  if (parcel.note.isNotBlank()) Text("Notiz: ${parcel.note}")
                                                   Text("Status: ${parcel.status}")
                                                   if (parcel.pin.isNotBlank()) Text("Abhol-PIN: ${parcel.pin}")
                                                   Text(
@@ -482,6 +485,7 @@ jobs:
                           put("code", p.code)
                           put("carrier", p.carrier)
                           put("customer", p.customer)
+                          put("note", p.note)
                           put("type", p.type)
                           put("status", p.status)
                           put("pin", p.pin)
@@ -501,6 +505,7 @@ jobs:
                               o.optString("code"),
                               o.optString("carrier"),
                               o.optString("customer"),
+                              o.optString("note"),
                               o.optString("type"),
                               o.optString("status"),
                               o.optString("pin"),
