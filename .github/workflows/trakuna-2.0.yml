@@ -205,7 +205,12 @@ jobs:
                           value.contains("POST") -> "Österreichische Post / ELLA"
                           Regex("""^H\d{19}$""").matches(compact) -> "Hermes Geschäftskundenbereich"
                           Regex("""^Z[A-Z0-9]{7}$""").matches(compact) -> "GLS / YourGLS"
-                          Regex("""^\d{14}$""").matches(compact) -> "Hermes Geschäftskundenbereich"
+                          // Beobachtete österreichische Label-Barcodes aus realen Tests:
+                          // GLS: 13-stellig, beginnt mit 872. Hermes: 22-stellig, beginnt mit 104.
+                          // Heuristische Muster; bei Unsicherheit bleibt manuelle Auswahl verfügbar.
+                          Regex("""^872\d{10}$""").matches(compact) -> "GLS / YourGLS"
+                          Regex("""^104\d{19}$""").matches(compact) -> "Hermes Geschäftskundenbereich"
+$3
                           else -> null
                       }
                   }
