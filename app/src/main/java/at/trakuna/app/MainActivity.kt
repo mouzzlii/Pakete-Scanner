@@ -22,6 +22,9 @@ import androidx.compose.runtime.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.resume
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -36,6 +39,35 @@ import java.util.UUID
 
 private val Forest = Color(0xFF174D39)
 private val Pale = Color(0xFFF1F5F2)
+
+private suspend fun connectBluetoothSpp(device: BluetoothDevice): String =
+    suspendCancellableCoroutine { continuation ->
+        val socket = try {
+            device.createRfcommSocketToServiceRecord(
+                UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+            )
+        } catch (_: Exception) {
+            continuation.resume("SPP-Verbindung fehlgeschlagen: Profil nicht unterstützt oder Gerät nicht erreichbar.")
+            return@suspendCancellableCoroutine
+        }
+
+        continuation.invokeOnCancellation {
+            try { socket.close() } catch (_: Exception) {}
+        }
+
+        Thread({
+            val result = try {
+                socket.connect()
+                "Bluetooth-SPP-Verbindung erfolgreich. Es wurden keine Druckdaten gesendet."
+            } catch (_: Exception) {
+                "SPP-Verbindung fehlgeschlagen: Profil nicht unterstützt oder Gerät nicht erreichbar."
+            } finally {
+                try { socket.close() } catch (_: Exception) {}
+            }
+            if (continuation.isActive) continuation.resume(result)
+        }, "trakuna-bluetooth-spp").start()
+    }
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -52,7 +84,7 @@ class MainActivity : ComponentActivity() {
         var printerHost by remember { mutableStateOf("") }
         var printerPort by remember { mutableStateOf("631") }
         var printerStatus by remember { mutableStateOf("Noch kein Verbindungstest durchgeführt.") }
-        var pairedPrinters by remember { mutableStateOf(listOf<BluetoothDevice>()) }
+        var pairedPrinters by remember { mutableStateOf(listOf<Pair<BluetoothDevice, String>>()) }
         val coroutineScope = rememberCoroutineScope()
 
         val bluetoothPermissionLauncher = rememberLauncherForActivityResult(
@@ -61,7 +93,7 @@ class MainActivity : ComponentActivity() {
             if (granted) {
                 try {
                     val adapter = (getSystemService(BLUETOOTH_SERVICE) as android.bluetooth.BluetoothManager).adapter
-                    pairedPrinters = adapter?.bondedDevices?.toList()?.sortedBy { it.name ?: it.address } ?: emptyList()
+                    pairedPrinters = adapter?.bondedDevices?.toList()?.map { device -> device to (device.name?.takeIf { it.isNotBlank() } ?: "Bluetooth-Gerät (${device.address})") }?.sortedBy { it.second } ?: emptyList()
                     printerStatus = if (pairedPrinters.isEmpty()) "Keine gekoppelten Bluetooth-Geräte gefunden. Kopple den Drucker zuerst in den Android-Einstellungen."
                         else "Gekoppelte Geräte geladen. Wähle einen Drucker für den SPP-Verbindungstest."
                 } catch (_: SecurityException) {
@@ -117,20 +149,9 @@ class MainActivity : ComponentActivity() {
             }
             printerStatus = "Prüfe Bluetooth-SPP-Verbindung …"
             coroutineScope.launch {
-                val result = withContext(Dispatchers.IO) {
-                    var socket: BluetoothSocket? = null
-                    try {
-                        socket = device.createRfcommSocketToServiceRecord(
-                            UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
-                        )
-                        socket.connect()
-                        "Bluetooth-SPP-Verbindung erfolgreich. Es wurden keine Druckdaten gesendet."
-                    } catch (_: Exception) {
-                        "SPP-Verbindung fehlgeschlagen: Profil nicht unterstützt oder Gerät nicht erreichbar."
-                    } finally {
-                        try { socket?.close() } catch (_: Exception) {}
-                    }
-                }
+                val result = withTimeoutOrNull(12_000) {
+                    connectBluetoothSpp(device)
+                } ?: "SPP-Verbindung nach 12 Sekunden abgebrochen. Gerät und Profil prüfen."
                 printerStatus = result
             }
         }

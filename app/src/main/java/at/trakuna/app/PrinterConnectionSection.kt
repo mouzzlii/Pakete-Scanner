@@ -30,7 +30,7 @@ internal fun PrinterConnectionSection(
     host: String,
     port: String,
     status: String,
-    pairedPrinters: List<BluetoothDevice>,
+    pairedPrinters: List<Pair<BluetoothDevice, String>>,
     onHostChange: (String) -> Unit,
     onPortChange: (String) -> Unit,
     onTestNetwork: () -> Unit,
@@ -75,12 +75,12 @@ internal fun PrinterConnectionSection(
             OutlinedButton(onClick = onLoadBluetooth, modifier = Modifier.fillMaxWidth()) {
                 Text("GEKOPPELTE BLUETOOTH-GERÄTE LADEN")
             }
-            pairedPrinters.forEach { device ->
+            pairedPrinters.forEach { (device, displayName) ->
                 OutlinedButton(
                     onClick = { onTestBluetooth(device) },
                     modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
                 ) {
-                    Text("SPP-Verbindung testen")
+                    Text("$displayName – SPP testen")
                 }
             }
             Spacer(Modifier.height(8.dp))
