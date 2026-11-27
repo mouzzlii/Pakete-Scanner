@@ -1,6 +1,10 @@
 
 name: Build TRAKUNA 2.0
 
+concurrency:
+  group: trakuna-android-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
