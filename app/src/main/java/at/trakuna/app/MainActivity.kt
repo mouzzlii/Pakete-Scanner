@@ -304,6 +304,8 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     Spacer(Modifier.height(18.dp))
+                    ParcelShopSection()
+                    Spacer(Modifier.height(18.dp))
                     PrinterConnectionSection(
                         host = printerHost,
                         port = printerPort,
