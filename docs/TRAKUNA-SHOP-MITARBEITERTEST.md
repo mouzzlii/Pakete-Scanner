@@ -22,8 +22,8 @@
 ### 2. Barcode-Erkennung
 - Einen eigens für den Test erzeugten Fantasie-Barcode verwenden, der garantiert keiner echten Sendung zugeordnet ist.
 - Kamera-Scanner öffnen, Code erfassen und prüfen, ob der erkannte Text korrekt angezeigt wird.
-- Falls vorhanden, einen externen HID-/Tastatur-Scanner verwenden: Code scannen/eintippen und anschließend ausdrücklich **CODE WEITERLEITEN** antippen.
-- Prüfen, ob der Code in TRAKUNA sichtbar bleibt.
+- Falls vorhanden, einen externen HID-/Tastatur-Scanner verwenden: Code scannen/eintippen und anschließend ausdrücklich **ANBIETER ERKENNEN & PORTAL ÖFFNEN** antippen.
+- Prüfen, ob der Code in TRAKUNA sichtbar bleibt. Die Schaltfläche erkennt den Anbieter und öffnet bei eindeutiger Erkennung nur dessen Portal im externen Browser; sie fügt den Code nicht automatisch in das Portal ein.
 - Wichtig: Ein HID-Scan wird nicht automatisch in ein Carrier-Portal eingefügt.
 
 ### 3. Carrier-Auswahl und Portal
