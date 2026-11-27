@@ -67,6 +67,11 @@ internal fun ParcelShopSection() {
                     feedback = "Gespeichert: ${result.parcel.barcode}"
                     refresh()
                 }
+                is ParcelStoreResult.Cleared -> {
+                    feedback = "${result.deletedCount} lokale Demodatensätze gelöscht."
+                    storageLocations.clear()
+                    refresh()
+                }
                 is ParcelStoreResult.Rejected -> feedback = result.reason
             }
         }
