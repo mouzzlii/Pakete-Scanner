@@ -45,6 +45,9 @@ Abnahmekriterien:
 
 ## Teststatus (Stand 27.11.2026)
 
+- **CI-Build, Commit `b6b39282e163cfe71372817ef6465847ca2fcae2`:** GitHub Actions-Lauf [#46006540110](https://github.com/mouzzlii/Pakete-Scanner/actions/runs/46006540110) vollständig erfolgreich. Unit-Tests, Android Lint, Debug-APK-Build und Artefakt-Upload wurden erfolgreich abgeschlossen.
+- **Unit-Tests:** 11 Tests im aktuellen Lauf erfolgreich. Zusätzlich wurden die reinen Kotlin-Komponenten lokal kompiliert und ein separater 10-Fälle-Smoke-Test erfolgreich ausgeführt; das sind keine Android-Geräte- oder Hardwaretests.
+- **APK-Artefakt:** `TRAKUNA-2.0-Android`, GitHub-Artefakt-ID `15201352884`, ca. 9,25 MB; laut GitHub bis 25.02.2027 verfügbar. Der Download ist über den Workflow-Lauf erreichbar.
 - **Im Android-Testbuild enthalten:** manuelle WLAN/LAN-Host-/Port-Prüfung per TCP mit Zeitlimit; die Anzeige weist ausdrücklich darauf hin, dass Erreichbarkeit keine Drucker- oder IPP-Kompatibilität bestätigt.
 - **Im Android-Testbuild enthalten:** Anzeige bereits gekoppelter Bluetooth-Geräte und ausdrücklicher Verbindungstest über Bluetooth Classic SPP/RFCOMM mit Standard-SPP-UUID; es werden keine Druckdaten gesendet.
 - **Build:** Den aktuellen Build-Status und das zugehörige Artefakt zeigt der [GitHub-Actions-Workflow](https://github.com/mouzzlii/Pakete-Scanner/actions/workflows/trakuna-2.0.yml). Ein erfolgreicher CI-Lauf bestätigt Kompilierung und Artefakterstellung, nicht die reale Gerätefunktion.
