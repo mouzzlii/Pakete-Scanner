@@ -19,6 +19,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -50,6 +53,7 @@ class MainActivity : ComponentActivity() {
         var printerPort by remember { mutableStateOf("631") }
         var printerStatus by remember { mutableStateOf("Noch kein Verbindungstest durchgeführt.") }
         var pairedPrinters by remember { mutableStateOf(listOf<BluetoothDevice>()) }
+        val coroutineScope = rememberCoroutineScope()
 
         val bluetoothPermissionLauncher = rememberLauncherForActivityResult(
             ActivityResultContracts.RequestPermission()
@@ -89,18 +93,20 @@ class MainActivity : ComponentActivity() {
                 return
             }
             val endpoint = (validation as TcpEndpointValidation.Valid).endpoint
-            val host = endpoint.host
-            val port = endpoint.port
             printerStatus = "Prüfe Netzwerk-Endpunkt …"
-            Thread {
-                val result = try {
-                    Socket().use { socket -> socket.connect(InetSocketAddress(host, port), 3000) }
-                    "TCP-Endpunkt $host:$port ist erreichbar. IPP-/Druckerfähigkeit wurde damit noch nicht bestätigt."
-                } catch (e: Exception) {
-                    "Netzwerk-Endpunkt nicht erreichbar: ${e.message ?: "Verbindung fehlgeschlagen"}"
+            coroutineScope.launch {
+                val result = withContext(Dispatchers.IO) {
+                    try {
+                        Socket().use { socket ->
+                            socket.connect(InetSocketAddress(endpoint.host, endpoint.port), 3000)
+                        }
+                        "TCP-Endpunkt ${endpoint.host}:${endpoint.port} ist erreichbar. IPP-/Druckerfähigkeit wurde damit noch nicht bestätigt."
+                    } catch (e: Exception) {
+                        "Netzwerk-Endpunkt nicht erreichbar: ${e.message ?: "Verbindung fehlgeschlagen"}"
+                    }
                 }
-                runOnUiThread { printerStatus = result }
-            }.start()
+                printerStatus = result
+            }
         }
 
         fun testBluetoothSpp(device: BluetoothDevice) {
