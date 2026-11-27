@@ -54,6 +54,12 @@ jobs:
           sdkmanager --list_installed | grep -F "platforms;android-35"
           sdkmanager --list_installed | grep -F "build-tools;35.0.0"
 
+      - name: Robolectric Maven Central Erreichbarkeit prüfen
+        run: |
+          curl --fail --silent --show-error --retry 3 --retry-all-errors --retry-delay 2 \
+            --output /dev/null \
+            https://repo.maven.apache.org/maven2/org/robolectric/android-all-instrumented/maven-metadata.xml
+
       - name: Unit-Tests ausführen
         run: gradle --no-daemon testDebugUnitTest
 
