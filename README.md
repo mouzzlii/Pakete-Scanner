@@ -54,7 +54,7 @@ Die Netzwerkprüfung läuft außerhalb des UI-Threads und verwendet ein Verbindu
 ## Sicherheits- und Funktionsgrenzen
 
 - Keine Passwörter oder Zugangsdaten in TRAKUNA.
-- Die separate Paketverwaltung ist ausschließlich eine lokale, unverbindliche Demo mit SQLite. Sie löst keine echte Paketannahme, Abholung, Buchung oder Carrier-Aktion aus. Wegen unverschlüsselter Barcode-Speicherung ausschließlich synthetische Testcodes verwenden.
+- Die separate Paketverwaltung ist ausschließlich eine lokale, unverbindliche Demo mit SQLite. Sie löst keine echte Paketannahme, Abholung, Buchung oder Carrier-Aktion aus. Wegen unverschlüsselter Barcode-Speicherung ausschließlich synthetische Testcodes verwenden. Die lokale Demo bietet eine ausdrücklich bestätigungspflichtige Funktion zum Löschen aller Demo-Einträge auf diesem Gerät.
 - Keine Versandlabel-Erstellung, Etikettenbestellung oder echten Druckaufträge.
 - Keine Speicherung gescannter Paketdaten auf einem TRAKUNA-Server.
 - Die Android-App besitzt die INTERNET-Berechtigung ausschließlich für den vom Nutzer gestarteten TCP-Verbindungstest zum manuell eingegebenen Netzwerk-Endpunkt.
@@ -73,7 +73,7 @@ Voraussetzungen: Android Studio (empfohlen), JDK 17 und Android SDK 35.
 - Für statische Android-Prüfungen: `gradle lintDebug`.
 - Für eine Debug-APK: `gradle assembleDebug`.
 
-GitHub Actions führt diese drei Schritte ebenfalls getrennt aus und veröffentlicht die Debug-APK als Build-Artefakt. Die Unit-Tests prüfen ausschließlich die lokale Erkennungslogik; sie ersetzen keine Kamera-, Browser-, Bluetooth-, Netzwerk- oder Gerätetests.
+GitHub Actions führt diese drei Schritte ebenfalls getrennt aus und veröffentlicht die Debug-APK als Build-Artefakt. Die Unit-Tests prüfen Carrier-Erkennung, Paketstatusregeln, lokale Datenbankoperationen einschließlich des expliziten Löschens der Demodaten sowie die Eingabe- und Netzwerkadressregeln. Sie ersetzen keine Kamera-, Browser-, Bluetooth-, Netzwerk- oder Gerätetests.
 
 ## Teststatus
 
