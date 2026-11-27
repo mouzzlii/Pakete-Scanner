@@ -145,6 +145,29 @@ internal fun ParcelShopSection() {
 
             Spacer(Modifier.height(8.dp))
             Text(feedback, style = MaterialTheme.typography.bodySmall, color = Color(0xFF174D39))
+            if (parcels.isNotEmpty()) {
+                TextButton(onClick = { showClearConfirmation = true }) {
+                    Text("LOKALE DEMODATEN LÖSCHEN", color = Color(0xFF9A3412))
+                }
+            }
+            if (showClearConfirmation) {
+                AlertDialog(
+                    onDismissRequest = { showClearConfirmation = false },
+                    title = { Text("Alle lokalen Demodaten löschen?") },
+                    text = {
+                        Text("Es werden alle ${parcels.size} lokal gespeicherten Paket- und Retoureneinträge auf diesem Gerät unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.")
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            showClearConfirmation = false
+                            perform { database.clearAll() }
+                        }) { Text("ALLE LÖSCHEN", color = Color(0xFF9A3412)) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showClearConfirmation = false }) { Text("Abbrechen") }
+                    }
+                )
+            }
             Spacer(Modifier.height(12.dp))
             val openCount = parcels.count { it.status != ParcelStatus.HANDED_OVER && it.status != ParcelStatus.RETURNED_TO_CARRIER }
             Text("PAKETVORGÄNGE · $openCount offen · ${parcels.size - openCount} abgeschlossen", fontWeight = FontWeight.Bold, color = Color(0xFF174D39))
