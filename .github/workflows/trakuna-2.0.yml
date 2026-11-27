@@ -1,7 +1,8 @@
 name: Build TRAKUNA 2.0
 
 concurrency:
-  group: trakuna-android-${{ github.ref }}
+  # Use the same key for push and pull_request events on one head branch.
+  group: trakuna-android-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 on:
