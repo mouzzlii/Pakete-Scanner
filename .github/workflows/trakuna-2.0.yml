@@ -128,7 +128,7 @@ jobs:
               <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
               <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
               <application
-                  android:allowBackup="true"
+                  android:allowBackup="false"
                   android:label="TRAKUNA"
                   android:theme="@android:style/Theme.Material.Light.NoActionBar">
                   <meta-data
@@ -491,7 +491,7 @@ jobs:
                               )
                               Spacer(Modifier.height(8.dp))
                               Text(
-                                  "TRAKUNA benötigt keine Internetberechtigung. Internetverbindung und Anmeldung erfolgen im Browser direkt beim Anbieter.",
+                                  "TRAKUNA benötigt die Internetberechtigung ausschließlich für den manuellen WLAN/LAN-Verbindungstest zum selbst eingegebenen Drucker-Endpunkt. Paketcodes werden nicht an einen TRAKUNA-Server übertragen; Anmeldung und Vorgänge erfolgen im externen Browser direkt beim Anbieter.",
                                   fontSize = 11.sp,
                                   color = Color.Gray
                               )
