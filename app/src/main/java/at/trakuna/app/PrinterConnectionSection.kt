@@ -80,7 +80,7 @@ internal fun PrinterConnectionSection(
                     onClick = { onTestBluetooth(device) },
                     modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
                 ) {
-                    Text("SPP testen: ${device.name ?: "Bluetooth-Gerät"}")
+                    Text("SPP-Verbindung testen")
                 }
             }
             Spacer(Modifier.height(8.dp))
