@@ -123,6 +123,10 @@ jobs:
 
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+              <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
               <application
                   android:allowBackup="true"
                   android:label="TRAKUNA"
@@ -145,10 +149,17 @@ jobs:
           cat > app/src/main/java/at/trakuna/app/MainActivity.kt <<'EOF'
           package at.trakuna.app
 
+          import android.Manifest
+          import android.bluetooth.BluetoothDevice
+          import android.bluetooth.BluetoothSocket
           import android.content.ActivityNotFoundException
           import android.content.Intent
+          import android.content.pm.PackageManager
           import android.net.Uri
+          import android.os.Build
           import android.os.Bundle
+          import androidx.activity.compose.rememberLauncherForActivityResult
+          import androidx.activity.result.contract.ActivityResultContracts
           import androidx.activity.ComponentActivity
           import androidx.activity.compose.setContent
           import androidx.compose.foundation.layout.*
@@ -165,6 +176,9 @@ jobs:
           import androidx.compose.ui.unit.sp
           import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
           import java.util.Locale
+          import java.net.InetSocketAddress
+          import java.net.Socket
+          import java.util.UUID
 
           private val Forest = Color(0xFF174D39)
           private val Pale = Color(0xFFF1F5F2)
@@ -192,6 +206,76 @@ jobs:
                   var scannedCode by remember { mutableStateOf("") }
                   var status by remember { mutableStateOf("Bereit. Paket scannen oder Anbieter auswählen.") }
                   var detected by remember { mutableStateOf(false) }
+                  var printerHost by remember { mutableStateOf("") }
+                  var printerPort by remember { mutableStateOf("631") }
+                  var printerStatus by remember { mutableStateOf("Noch kein Verbindungstest durchgeführt.") }
+                  var pairedPrinters by remember { mutableStateOf(listOf<BluetoothDevice>()) }
+
+                  val bluetoothPermissionLauncher = rememberLauncherForActivityResult(
+                      ActivityResultContracts.RequestPermission()
+                  ) { granted ->
+                      if (granted) loadPairedPrinters()
+                      else printerStatus = "Bluetooth-Zugriff wurde nicht freigegeben."
+                  }
+
+                  fun loadPairedPrinters() {
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                          checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                          bluetoothPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
+                          return
+                      }
+                      try {
+                          val adapter = (getSystemService(BLUETOOTH_SERVICE) as android.bluetooth.BluetoothManager).adapter
+                          pairedPrinters = adapter?.bondedDevices?.toList()?.sortedBy { it.name ?: it.address } ?: emptyList()
+                          printerStatus = if (pairedPrinters.isEmpty()) "Keine gekoppelten Bluetooth-Geräte gefunden. Kopple den Drucker zuerst in den Android-Einstellungen."
+                              else "Gekoppelte Geräte geladen. Wähle einen Drucker für den SPP-Verbindungstest."
+                      } catch (_: SecurityException) {
+                          printerStatus = "Bluetooth-Berechtigung fehlt."
+                      }
+                  }
+
+                  fun testWifiEndpoint() {
+                      val host = printerHost.trim()
+                      val port = printerPort.toIntOrNull()
+                      if (host.isBlank() || port == null || port !in 1..65535) {
+                          printerStatus = "Bitte IP-Adresse/Host und einen gültigen Port (1–65535) eingeben."
+                          return
+                      }
+                      printerStatus = "Prüfe Netzwerk-Endpunkt …"
+                      Thread {
+                          val result = try {
+                              Socket().use { socket -> socket.connect(InetSocketAddress(host, port), 3000) }
+                              "TCP-Endpunkt $host:$port ist erreichbar. IPP-/Druckerfähigkeit wurde damit noch nicht bestätigt."
+                          } catch (e: Exception) {
+                              "Netzwerk-Endpunkt nicht erreichbar: ${e.message ?: "Verbindung fehlgeschlagen"}"
+                          }
+                          runOnUiThread { printerStatus = result }
+                      }.start()
+                  }
+
+                  fun testBluetoothSpp(device: BluetoothDevice) {
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                          checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                          bluetoothPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
+                          return
+                      }
+                      printerStatus = "Prüfe Bluetooth-SPP-Verbindung zu ${device.name ?: device.address} …"
+                      Thread {
+                          var socket: BluetoothSocket? = null
+                          val result = try {
+                              socket = device.createRfcommSocketToServiceRecord(
+                                  UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+                              )
+                              socket.connect()
+                              "Bluetooth-SPP-Verbindung zu ${device.name ?: device.address} erfolgreich. Es wurden keine Druckdaten gesendet."
+                          } catch (e: Exception) {
+                              "SPP-Verbindung fehlgeschlagen: ${e.message ?: "Profil nicht unterstützt oder Gerät nicht erreichbar"}"
+                          } finally {
+                              try { socket?.close() } catch (_: Exception) {}
+                          }
+                          runOnUiThread { printerStatus = result }
+                      }.start()
+                  }
 
                   fun detectCarrier(raw: String): String? {
                       val value = raw.trim().uppercase(Locale.ROOT)
@@ -345,6 +429,50 @@ jobs:
                                       if (detected) {
                                           Text("Die Erkennung nutzt bekannte Barcode-Kandidaten. Bei Unsicherheit bitte Anbieter manuell korrigieren.", fontSize = 11.sp, color = Color.DarkGray)
                                       }
+                                  }
+                              }
+                              Spacer(Modifier.height(18.dp))
+                              Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+                                  Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                                      Text("DRUCKER VERBINDEN", fontWeight = FontWeight.Bold, color = Forest)
+                                      Text("Erste Teststufe: Verbindung prüfen – keine Druckdaten werden gesendet.", fontSize = 12.sp, color = Color.DarkGray)
+                                      Spacer(Modifier.height(8.dp))
+                                      Text("WLAN / LAN (manuelle IP)", fontWeight = FontWeight.SemiBold)
+                                      OutlinedTextField(
+                                          value = printerHost,
+                                          onValueChange = { printerHost = it },
+                                          label = { Text("Drucker-IP oder Hostname") },
+                                          placeholder = { Text("z. B. 192.168.1.50") },
+                                          modifier = Modifier.fillMaxWidth(),
+                                          singleLine = true
+                                      )
+                                      OutlinedTextField(
+                                          value = printerPort,
+                                          onValueChange = { printerPort = it.filter(Char::isDigit).take(5) },
+                                          label = { Text("Port (IPP häufig 631)") },
+                                          modifier = Modifier.fillMaxWidth(),
+                                          singleLine = true
+                                      )
+                                      OutlinedButton(onClick = { testWifiEndpoint() }, modifier = Modifier.fillMaxWidth()) {
+                                          Text("NETZWERK-VERBINDUNG TESTEN")
+                                      }
+                                      Divider()
+                                      Text("Bluetooth Classic (SPP)", fontWeight = FontWeight.SemiBold)
+                                      Text("Drucker zuerst in Android koppeln. BLE und proprietäre Profile benötigen später eigene Adapter.", fontSize = 11.sp, color = Color.DarkGray)
+                                      OutlinedButton(onClick = { loadPairedPrinters() }, modifier = Modifier.fillMaxWidth()) {
+                                          Text("GEKOPPELTE BLUETOOTH-GERÄTE LADEN")
+                                      }
+                                      pairedPrinters.forEach { device ->
+                                          OutlinedButton(
+                                              onClick = { testBluetoothSpp(device) },
+                                              modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                                          ) {
+                                              Text("SPP testen: ${device.name ?: "Bluetooth-Gerät"}")
+                                          }
+                                      }
+                                      Spacer(Modifier.height(8.dp))
+                                      Text("Druckerstatus", fontWeight = FontWeight.SemiBold, color = Forest)
+                                      Text(printerStatus, fontSize = 12.sp)
                                   }
                               }
                               Spacer(Modifier.height(18.dp))
