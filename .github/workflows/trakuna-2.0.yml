@@ -210,7 +210,7 @@ jobs:
                           // Heuristische Muster; bei Unsicherheit bleibt manuelle Auswahl verfügbar.
                           Regex("""^872\d{10}$""").matches(compact) -> "GLS / YourGLS"
                           Regex("""^104\d{19}$""").matches(compact) -> "Hermes Geschäftskundenbereich"
-$3
+                          Regex("""^\\d{14}$""").matches(compact) -> "Hermes Geschäftskundenbereich"
                           else -> null
                       }
                   }
