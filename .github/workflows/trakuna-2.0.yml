@@ -301,8 +301,6 @@ jobs:
                           value.contains("POST") -> "Österreichische Post / ELLA"
                           // Hermes: nur das vom Nutzer bestätigte 104+19-Format automatisch zuordnen.
                           Regex("""^104\d{19}$""").matches(compact) -> "Hermes Geschäftskundenbereich"
-                          // GLS: nur das vom Nutzer bestätigte 872+10-Format automatisch zuordnen.
-                          Regex("""^872\d{10}$""").matches(compact) -> "GLS / YourGLS"
                           // DPD Österreich: offizielles PIN-Beispiel P + 12 Ziffern.
                           Regex("""^P\d{12}$""").matches(compact) -> "DPD Business"
                           // UPS: eindeutiges 1Z-Format. Andere Nummernlängen können kollidieren.
@@ -329,7 +327,11 @@ jobs:
                       } else {
                           selected = ""
                           detected = false
-                          status = "Anbieter nicht eindeutig erkannt. Bitte Anbieter auswählen."
+                          status = if (Regex("""^872\d{10}$""").matches(scannedCode.uppercase(Locale.ROOT).replace(Regex("""[\s-]"""), ""))) {
+                              "Mehrdeutiger 13-stelliger Code (872…): kann ein GLS- oder EAN-13-Code sein. Bitte GLS manuell auswählen."
+                          } else {
+                              "Anbieter nicht eindeutig erkannt. Bitte Anbieter auswählen."
+                          }
                       }
                   }
 
