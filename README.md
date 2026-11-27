@@ -36,6 +36,12 @@ Ein 13-stelliger Code mit dem Präfix `872` wird bewusst **nicht automatisch GLS
 
 Diese Muster decken nicht alle nationalen und internationalen Sendungsnummern ab und sind kein Beweis für die tatsächliche Zugehörigkeit eines Codes zu einem Paketdienst. DHL und Österreichische Post werden nicht anhand allgemeiner Nummernformate automatisch zugeordnet. Bei Unsicherheit bitte manuell auswählen.
 
+## Eingabeprüfung beim Drucker-Verbindungstest
+
+Vor dem TCP-Verbindungsversuch prüft TRAKUNA die manuelle Host-/Port-Eingabe. Unterstützt werden Hostnamen sowie IPv4- und IPv6-Adressen. URL-Schemata, Pfade, ungültige Zeichen und Ports außerhalb von 1 bis 65535 werden abgewiesen. Die Prüfung selbst stellt noch keine Verbindung her.
+
+Die Netzwerkprüfung läuft außerhalb des UI-Threads und verwendet ein Verbindungszeitlimit von drei Sekunden. Ein erfolgreicher TCP-Verbindungsaufbau bestätigt ausschließlich die Erreichbarkeit dieses Endpunkts – nicht IPP, IPPS oder die Druckbereitschaft des Geräts.
+
 ## Drucker – aktueller Umfang
 
 - WLAN/LAN: manuelle TCP-Erreichbarkeitsprüfung eines selbst eingegebenen Hosts und Ports.
