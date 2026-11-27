@@ -110,7 +110,7 @@ class MainActivity : ComponentActivity() {
             }
             try {
                 val adapter = (getSystemService(BLUETOOTH_SERVICE) as android.bluetooth.BluetoothManager).adapter
-                pairedPrinters = adapter?.bondedDevices?.toList()?.sortedBy { it.name ?: it.address } ?: emptyList()
+                pairedPrinters = adapter?.bondedDevices?.toList()?.map { device -> device to (device.name?.takeIf { it.isNotBlank() } ?: "Bluetooth-Gerät (${device.address})") }?.sortedBy { it.second } ?: emptyList()
                 printerStatus = if (pairedPrinters.isEmpty()) "Keine gekoppelten Bluetooth-Geräte gefunden. Kopple den Drucker zuerst in den Android-Einstellungen."
                     else "Gekoppelte Geräte geladen. Wähle einen Drucker für den SPP-Verbindungstest."
             } catch (_: SecurityException) {
