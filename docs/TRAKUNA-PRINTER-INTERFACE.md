@@ -71,7 +71,7 @@ Statusmodell:
 ## Stufenplan
 
 1. **Spezifikation und Kompatibilitätsmatrix** – abgeschlossen mit diesem Dokument und dem Testplan.
-2. **Geräteverwaltung ohne Druckaufträge** – manuelles WLAN-Gerät hinzufügen, gekoppelte Bluetooth-Geräte anzeigen, Verbindung testen, Status darstellen.
+2. **Geräteverwaltung ohne Druckaufträge** – erste begrenzte Testimplementierung vorhanden: manuelle TCP-Erreichbarkeitsprüfung und Anzeige gekoppelter Bluetooth-Geräte mit SPP-Verbindungsversuch. Vollständige Geräteprofile, IPP-Status und Hardwarevalidierung stehen noch aus.
 3. **WLAN-Standardadapter** – IPP/IPPS und unterstützte Discovery.
 4. **Bluetooth-Adapter** – zuerst SPP für nachweislich kompatible Geräte; BLE pro dokumentiertem Gerätemodell.
 5. **Formatadapter** – erst nach Gerätefähigkeitsprüfung.
