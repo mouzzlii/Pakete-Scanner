@@ -222,7 +222,13 @@ jobs:
                               if (match != null) {
                                   selected = match
                                   detected = true
-                                  status = "Anbieter vorläufig erkannt: $match. Bitte prüfen und dann das Business-Portal öffnen."
+                                  status = "Anbieter erkannt: $match. Öffne den offiziellen Geschäftskunden-Einstieg im Browser."
+                                  try {
+                                      val portal = portals.first { it.name == match }
+                                      startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(portal.url)))
+                                  } catch (_: ActivityNotFoundException) {
+                                      status = "Anbieter erkannt, aber kein Browser zum Öffnen gefunden."
+                                  }
                               } else {
                                   selected = ""
                                   detected = false
@@ -317,7 +323,7 @@ jobs:
                                       Text("Status", fontWeight = FontWeight.Bold, color = Forest)
                                       Text(status, fontSize = 13.sp)
                                       if (detected) {
-                                          Text("Automatische Erkennung ist eine Vorentscheidung – bitte Anbieter vor dem Öffnen kontrollieren.", fontSize = 11.sp, color = Color.DarkGray)
+                                          Text("Die Erkennung nutzt bekannte Barcode-Kandidaten. Bei Unsicherheit bitte Anbieter manuell korrigieren.", fontSize = 11.sp, color = Color.DarkGray)
                                       }
                                   }
                               }
