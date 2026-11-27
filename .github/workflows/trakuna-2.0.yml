@@ -1,7 +1,17 @@
-
 name: Build TRAKUNA 2.0
 
+concurrency:
+  # Use the same key for push and pull_request events on one head branch.
+  group: trakuna-android-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 on:
+  push:
+    branches:
+      - fix/trakuna-scroll-layout
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -10,516 +20,59 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     steps:
       - name: Repository laden
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Java einrichten
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
 
       - name: Gradle einrichten
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '8.9'
 
       - name: Android SDK einrichten
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Android SDK-Lizenzen akzeptieren und Plattform installieren
         shell: bash
         run: |
+          # sdkmanager prompts for each license; provide explicit affirmative input
+          # instead of EOF so CI cannot stall or fail on an unanswered prompt.
+          # GitHub's bash runner enables pipefail; temporarily disable it so
+          # the expected SIGPIPE from 'yes' cannot mask sdkmanager's exit code.
+          set +o pipefail
           yes | sdkmanager --licenses
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          set -o pipefail
+          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager --list_installed | grep -F "platforms;android-35"
+          sdkmanager --list_installed | grep -F "build-tools;35.0.0"
 
-      - name: Android-Projekt erstellen
-        shell: bash
+      - name: Robolectric Maven Central Erreichbarkeit prüfen
         run: |
-          mkdir -p app/src/main/java/at/trakuna/app
-          mkdir -p app/src/main/res/values
+          curl --fail --silent --show-error --retry 3 --retry-all-errors --retry-delay 2 \
+            --output /dev/null \
+            https://repo.maven.apache.org/maven2/org/robolectric/android-all-instrumented/maven-metadata.xml
 
-          cat > settings.gradle.kts <<'EOF'
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-          rootProject.name = "TRAKUNA"
-          include(":app")
-          EOF
+      - name: Unit-Tests ausführen
+        run: gradle --no-daemon testDebugUnitTest
 
-          cat > build.gradle.kts <<'EOF'
-          plugins {
-              id("com.android.application") version "8.7.3" apply false
-              id("org.jetbrains.kotlin.android") version "2.0.21" apply false
-              id("org.jetbrains.kotlin.plugin.compose") version "2.0.21" apply false
-          }
-          EOF
-
-          cat > gradle.properties <<'EOF'
-          org.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8
-          android.useAndroidX=true
-          kotlin.code.style=official
-          EOF
-
-          cat > app/build.gradle.kts <<'EOF'
-          plugins {
-              id("com.android.application")
-              id("org.jetbrains.kotlin.android")
-              id("org.jetbrains.kotlin.plugin.compose")
-          }
-
-          android {
-              namespace = "at.trakuna.app"
-              compileSdk = 35
-
-              defaultConfig {
-                  applicationId = "at.trakuna.app"
-                  minSdk = 24
-                  targetSdk = 34
-                  versionCode = 2
-                  versionName = "2.0"
-              }
-
-              buildFeatures {
-                  compose = true
-              }
-          }
-
-          dependencies {
-              implementation(platform("androidx.compose:compose-bom:2024.10.01"))
-              implementation("androidx.activity:activity-compose:1.9.3")
-              implementation("androidx.compose.ui:ui")
-              implementation("androidx.compose.ui:ui-tooling-preview")
-              implementation("androidx.compose.material3:material3")
-              implementation("androidx.compose.foundation:foundation")
-              implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
-          }
-          EOF
-
-          cat > app/src/main/AndroidManifest.xml <<'EOF'
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <application
-                  android:allowBackup="true"
-                  android:label="TRAKUNA"
-                  android:theme="@android:style/Theme.Material.Light.NoActionBar">
-                  <meta-data
-                      android:name="com.google.mlkit.vision.DEPENDENCIES"
-                      android:value="barcode" />
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          EOF
-
-          cat > app/src/main/java/at/trakuna/app/MainActivity.kt <<'EOF'
-          package at.trakuna.app
-
-          import android.os.Bundle
-          import androidx.activity.ComponentActivity
-          import androidx.activity.compose.setContent
-          import androidx.compose.foundation.background
-          import androidx.compose.foundation.layout.*
-          import androidx.compose.foundation.lazy.LazyColumn
-          import androidx.compose.foundation.lazy.items
-          import androidx.compose.foundation.shape.RoundedCornerShape
-          import androidx.compose.foundation.text.KeyboardOptions
-          import androidx.compose.material3.*
-          import androidx.compose.runtime.*
-          import androidx.compose.ui.Alignment
-          import androidx.compose.ui.Modifier
-          import androidx.compose.ui.graphics.Color
-          import androidx.compose.ui.unit.dp
-          import androidx.compose.ui.unit.sp
-          import androidx.compose.ui.text.font.FontWeight
-          import androidx.compose.ui.text.input.KeyboardType
-          import com.google.android.gms.mlkit.codescanner.GmsBarcodeScanning
-          import org.json.JSONArray
-          import org.json.JSONObject
-          import java.text.SimpleDateFormat
-          import java.util.Date
-          import java.util.Locale
-          import kotlin.random.Random
-
-          private val Forest = Color(0xFF174D39)
-          private val Pale = Color(0xFFF1F5F2)
-
-          data class Parcel(
-              val id: String,
-              val code: String,
-              val carrier: String,
-              val customer: String,
-              val type: String,
-              val status: String,
-              val pin: String,
-              val time: Long
-          )
-
-          class MainActivity : ComponentActivity() {
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
-                  setContent { TrakunaApp() }
-              }
-
-              @Composable
-              private fun TrakunaApp() {
-                  val prefs = remember { getSharedPreferences("trakuna_data", MODE_PRIVATE) }
-                  val parcels = remember {
-                      mutableStateListOf<Parcel>().apply {
-                          addAll(readParcels(prefs.getString("parcels", "[]") ?: "[]"))
-                      }
-                  }
-
-                  var page by remember { mutableStateOf("home") }
-                  var formType by remember { mutableStateOf("Annahme") }
-                  var showForm by remember { mutableStateOf(false) }
-                  var code by remember { mutableStateOf("") }
-                  var carrier by remember { mutableStateOf("Unbekannt") }
-                  var customer by remember { mutableStateOf("") }
-                  var note by remember { mutableStateOf("") }
-                  var message by remember { mutableStateOf("") }
-                  var search by remember { mutableStateOf("") }
-
-                  fun persist() {
-                      prefs.edit().putString("parcels", writeParcels(parcels)).apply()
-                  }
-
-                  fun openForm(type: String, scanned: String = "") {
-                      formType = type
-                      code = scanned
-                      carrier = "Unbekannt"
-                      customer = ""
-                      note = ""
-                      message = ""
-                      showForm = true
-                  }
-
-                  fun saveOperation() {
-                      val entered = code.trim()
-                      if (entered.isBlank()) {
-                          message = "Bitte Sendungsnummer oder Abhol-PIN eingeben."
-                          return
-                      }
-
-                      if (formType == "Abholung") {
-                          val index = parcels.indexOfFirst {
-                              it.code.equals(entered, true) || it.pin == entered
-                          }
-                          if (index < 0) {
-                              message = "Keine passende Sendung gefunden."
-                              return
-                          }
-                          if (parcels[index].status == "Abgeholt") {
-                              message = "Diese Sendung wurde bereits abgeholt."
-                              return
-                          }
-                          parcels[index] = parcels[index].copy(status = "Abgeholt")
-                          persist()
-                          message = "Abholung lokal dokumentiert."
-                          showForm = false
-                          return
-                      }
-
-                      val pin = if (formType == "Annahme") {
-                          Random.nextInt(1000, 10000).toString()
-                      } else ""
-
-                      val status = when (formType) {
-                          "Annahme" -> "Eingelagert"
-                          "Retoure" -> "Zur Übergabe bereit"
-                          else -> "Versand vorgemerkt"
-                      }
-
-                      parcels.add(
-                          0,
-                          Parcel(
-                              System.currentTimeMillis().toString(),
-                              entered,
-                              carrier,
-                              customer.trim(),
-                              formType,
-                              status,
-                              pin,
-                              System.currentTimeMillis()
-                          )
-                      )
-                      persist()
-                      message = if (pin.isNotEmpty()) {
-                          "Lokal gespeichert. Abhol-PIN: $pin"
-                      } else {
-                          "Vorgang lokal gespeichert."
-                      }
-                      showForm = false
-                  }
-
-                  MaterialTheme(
-                      colorScheme = lightColorScheme(
-                          primary = Forest,
-                          secondary = Color(0xFF71947D),
-                          background = Pale,
-                          surface = Color.White
-                      )
-                  ) {
-                      Surface(
-                          modifier = Modifier.fillMaxSize(),
-                          color = Pale
-                      ) {
-                          Column(
-                              modifier = Modifier
-                                  .fillMaxSize()
-                                  .padding(16.dp)
-                          ) {
-                              Row(
-                                  modifier = Modifier.fillMaxWidth(),
-                                  verticalAlignment = Alignment.CenterVertically
-                              ) {
-                                  Column(modifier = Modifier.weight(1f)) {
-                                      Text(
-                                          "TRAKUNA",
-                                          fontSize = 28.sp,
-                                          fontWeight = FontWeight.Bold,
-                                          color = Forest
-                                      )
-                                      Text(
-                                          "ALLE PAKETDIENSTE. EIN SMARTPHONE.",
-                                          fontSize = 10.sp,
-                                          color = Forest
-                                      )
-                                  }
-                                  TextButton(onClick = { page = "home" }) {
-                                      Text("START")
-                                  }
-                              }
-
-                              Spacer(Modifier.height(18.dp))
-
-                              if (page == "home") {
-                                  Text("Paketshop-Zentrale", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                                  Text("Was möchtest du erledigen?", color = Color.DarkGray)
-                                  Spacer(Modifier.height(16.dp))
-
-                                  Button(
-                                      onClick = {
-                                          GmsBarcodeScanning.getClient(this@MainActivity)
-                                              .startScan()
-                                              .addOnSuccessListener { result ->
-                                                  openForm("Annahme", result.rawValue ?: "")
-                                              }
-                                              .addOnFailureListener {
-                                                  message = "Scanner nicht verfügbar. Bitte Nummer manuell eingeben."
-                                                  openForm("Annahme")
-                                              }
-                                      },
-                                      modifier = Modifier.fillMaxWidth().height(64.dp),
-                                      shape = RoundedCornerShape(16.dp)
-                                  ) {
-                                      Text("▦  PAKET SCANNEN", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                                  }
-
-                                  Spacer(Modifier.height(14.dp))
-
-                                  ActionButton("ANNAHME", "Sendung entgegennehmen") { openForm("Annahme") }
-                                  ActionButton("ABHOLUNG", "Sendung an Kunden ausgeben") { openForm("Abholung") }
-                                  ActionButton("RETOURE", "Retoure entgegennehmen") { openForm("Retoure") }
-                                  ActionButton("VERSAND", "Ausgehenden Versand vormerken") { openForm("Versand") }
-
-                                  Spacer(Modifier.height(14.dp))
-                                  Card(
-                                      modifier = Modifier.fillMaxWidth(),
-                                      colors = CardDefaults.cardColors(containerColor = Color.White)
-                                  ) {
-                                      Column(Modifier.padding(16.dp)) {
-                                          Text("HEUTE IM ÜBERBLICK", fontWeight = FontWeight.Bold, color = Forest)
-                                          Spacer(Modifier.height(8.dp))
-                                          Text("Erfasste Vorgänge: ${parcels.size}")
-                                          Text("Noch nicht abgeholt: ${parcels.count { it.status != "Abgeholt" }}")
-                                      }
-                                  }
-                                  Spacer(Modifier.height(8.dp))
-                                  OutlinedButton(
-                                      onClick = { page = "list" },
-                                      modifier = Modifier.fillMaxWidth()
-                                  ) {
-                                      Text("SENDUNGSÜBERSICHT  (${parcels.size})")
-                                  }
-                              } else {
-                                  Text("Sendungsübersicht", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                                  Spacer(Modifier.height(10.dp))
-                                  OutlinedTextField(
-                                      value = search,
-                                      onValueChange = { search = it },
-                                      label = { Text("Sendungsnummer oder Kunde suchen") },
-                                      modifier = Modifier.fillMaxWidth(),
-                                      singleLine = true
-                                  )
-                                  Spacer(Modifier.height(8.dp))
-                                  LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                      items(
-                                          parcels.filter {
-                                              it.code.contains(search, true) ||
-                                              it.customer.contains(search, true) ||
-                                              it.pin.contains(search, true)
-                                          },
-                                          key = { it.id }
-                                      ) { parcel ->
-                                          Card(modifier = Modifier.fillMaxWidth()) {
-                                              Column(Modifier.padding(12.dp)) {
-                                                  Text(parcel.code, fontWeight = FontWeight.Bold, color = Forest)
-                                                  Text("${parcel.type} • ${parcel.carrier}")
-                                                  if (parcel.customer.isNotBlank()) Text("Kunde: ${parcel.customer}")
-                                                  Text("Status: ${parcel.status}")
-                                                  if (parcel.pin.isNotBlank()) Text("Abhol-PIN: ${parcel.pin}")
-                                                  Text(
-                                                      SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY)
-                                                          .format(Date(parcel.time)),
-                                                      fontSize = 12.sp,
-                                                      color = Color.Gray
-                                                  )
-                                              }
-                                          }
-                                      }
-                                  }
-                                  Spacer(Modifier.height(8.dp))
-                                  OutlinedButton(
-                                      onClick = { page = "home" },
-                                      modifier = Modifier.fillMaxWidth()
-                                  ) { Text("ZURÜCK") }
-                              }
-
-                              if (message.isNotBlank()) {
-                                  Spacer(Modifier.height(8.dp))
-                                  Text(message, color = Forest)
-                              }
-                          }
-
-                          if (showForm) {
-                              AlertDialog(
-                                  onDismissRequest = { showForm = false },
-                                  title = { Text(formType) },
-                                  text = {
-                                      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                          OutlinedTextField(
-                                              value = code,
-                                              onValueChange = { code = it },
-                                              label = {
-                                                  Text(if (formType == "Abholung") "Sendungsnummer oder Abhol-PIN" else "Sendungsnummer / Barcode")
-                                              },
-                                              singleLine = true,
-                                              keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
-                                          )
-                                          if (formType != "Abholung") {
-                                              OutlinedTextField(
-                                                  value = carrier,
-                                                  onValueChange = { carrier = it },
-                                                  label = { Text("Paketdienst (z. B. Post, DHL, DPD, GLS, UPS)") },
-                                                  singleLine = true
-                                              )
-                                              OutlinedTextField(
-                                                  value = customer,
-                                                  onValueChange = { customer = it },
-                                                  label = { Text("Kundenname (optional)") },
-                                                  singleLine = true
-                                              )
-                                              OutlinedTextField(
-                                                  value = note,
-                                                  onValueChange = { note = it },
-                                                  label = { Text("Notiz (optional)") },
-                                                  singleLine = true
-                                              )
-                                          }
-                                      }
-                                  },
-                                  confirmButton = {
-                                      Button(onClick = { saveOperation() }) { Text("SPEICHERN") }
-                                  },
-                                  dismissButton = {
-                                      TextButton(onClick = { showForm = false }) { Text("ABBRECHEN") }
-                                  }
-                              )
-                          }
-                      }
-                  }
-              }
-
-              @Composable
-              private fun ActionButton(title: String, subtitle: String, onClick: () -> Unit) {
-                  Card(
-                      modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                      shape = RoundedCornerShape(14.dp),
-                      colors = CardDefaults.cardColors(containerColor = Color.White),
-                      onClick = onClick
-                  ) {
-                      Column(Modifier.padding(horizontal = 16.dp, vertical = 13.dp)) {
-                          Text(title, color = Forest, fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                          Text(subtitle, color = Color.DarkGray, fontSize = 12.sp)
-                      }
-                  }
-              }
-
-              private fun writeParcels(items: List<Parcel>): String {
-                  val array = JSONArray()
-                  items.forEach { p ->
-                      array.put(JSONObject().apply {
-                          put("id", p.id)
-                          put("code", p.code)
-                          put("carrier", p.carrier)
-                          put("customer", p.customer)
-                          put("type", p.type)
-                          put("status", p.status)
-                          put("pin", p.pin)
-                          put("time", p.time)
-                      })
-                  }
-                  return array.toString()
-              }
-
-              private fun readParcels(raw: String): List<Parcel> {
-                  return try {
-                      val array = JSONArray(raw)
-                      (0 until array.length()).map { i ->
-                          val o = array.getJSONObject(i)
-                          Parcel(
-                              o.optString("id"),
-                              o.optString("code"),
-                              o.optString("carrier"),
-                              o.optString("customer"),
-                              o.optString("type"),
-                              o.optString("status"),
-                              o.optString("pin"),
-                              o.optLong("time")
-                          )
-                      }
-                  } catch (_: Exception) {
-                      emptyList()
-                  }
-              }
-          }
-          EOF
+      - name: Android Lint ausführen
+        run: gradle --no-daemon lintDebug
 
       - name: APK bauen
         run: gradle --no-daemon assembleDebug
 
       - name: APK bereitstellen
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: TRAKUNA-2.0-Android
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+          retention-days: 30
