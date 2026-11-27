@@ -54,7 +54,8 @@ Die Netzwerkprüfung läuft außerhalb des UI-Threads und verwendet ein Verbindu
 ## Sicherheits- und Funktionsgrenzen
 
 - Keine Passwörter oder Zugangsdaten in TRAKUNA.
-- Keine Paketannahme, Abholung, Buchung, Versandlabel-Erstellung, Etikettenbestellung oder Carrier-Aktion.
+- Die separate Paketverwaltung ist ausschließlich eine lokale, unverbindliche Demo mit SQLite. Sie löst keine echte Paketannahme, Abholung, Buchung oder Carrier-Aktion aus. Wegen unverschlüsselter Barcode-Speicherung ausschließlich synthetische Testcodes verwenden.
+- Keine Versandlabel-Erstellung, Etikettenbestellung oder echten Druckaufträge.
 - Keine Speicherung gescannter Paketdaten auf einem TRAKUNA-Server.
 - Die Android-App besitzt die INTERNET-Berechtigung ausschließlich für den vom Nutzer gestarteten TCP-Verbindungstest zum manuell eingegebenen Netzwerk-Endpunkt.
 - Der externe HID-Scanner wird als Tastatureingabe unterstützt; es gibt keine native Zebra-SDK-Integration.
