@@ -54,3 +54,12 @@ Jeder Anbieter implementiert `CarrierAdapter` mit:
 
 ## Testgrenzen
 Unit-Tests prüfen die reine Status- und Validierungslogik. Sie beweisen weder Persistenz noch Android-Geräteverhalten, Carrier-API-Zugriff, Etikettendruck oder Produktivfähigkeit. Jede dieser Ebenen benötigt eigene Tests und eine dokumentierte Freigabe.
+
+
+## Datenbank-Härtung (Teststand)
+
+- SQLite bleibt ausschließlich lokal auf dem Android-Gerät; es gibt keine Cloud-Synchronisierung.
+- Statusänderungen verwenden einen Compare-and-set-Updatefilter (`id`, bisheriger Status und bisheriger Zeitstempel). Dadurch kann eine zweite Datenbankinstanz keine zwischenzeitlich erfolgte Änderung still überschreiben.
+- Nicht implementierte Schema-Upgrades und Downgrades brechen bewusst ab, statt eine unbekannte Datenbankstruktur scheinbar erfolgreich zu öffnen. Vor jeder künftigen Versionsanhebung ist eine getestete Migration erforderlich.
+- Robolectric-Tests prüfen Persistenz nach erneutem Öffnen, doppelte offene Barcodes, Wiederverwendung nach abgeschlossener Übergabe, unzulässige Statuswechsel und fehlende Lagerplätze.
+- Diese Tests sind automatisierte JVM-/Robolectric-Tests und ersetzen keine Tests auf realen Android-Geräten. Verschlüsselung, Backup/Wiederherstellung, Lösch- und Aufbewahrungsregeln sowie Mehrbenutzerbetrieb bleiben vor Echtdatenbetrieb offen.
