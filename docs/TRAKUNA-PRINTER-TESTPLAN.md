@@ -71,3 +71,10 @@ Die Matrix bleibt die Abnahmegrundlage für die weiteren Integrationsstufen.
 - Bluetooth-SPP-Verbindungsversuche laufen über den Coroutine-IO-Dispatcher statt über einen selbst gestarteten Thread. Es werden weiterhin keine Nutzdaten oder Druckdaten gesendet; der Socket wird im `finally`-Block geschlossen.
 - Bluetooth-Gerätenamen werden in der Druckeroberfläche nicht mehr direkt abgefragt, um einen unnötigen Zugriff auf die zur Laufzeit geschützte Geräteinformation zu vermeiden.
 - Diese Codeänderungen sind erst nach erfolgreichem CI-Lauf als Build-validiert zu betrachten; ein realer Bluetooth-Druckertest bleibt erforderlich.
+
+
+### Sicherheitsnachbesserung (27.11.2026)
+
+- Der manuelle Drucker-TCP-Test blockiert öffentliche Zieladressen und Hostnamen, deren DNS-Antworten nicht ausschließlich lokal/privat sind.
+- Die nach Prüfung aufgelöste IP-Adresse wird direkt verbunden, um eine erneute DNS-Auflösung zwischen Prüfung und Verbindung zu vermeiden.
+- Ein Kamera-Scan öffnet das Carrier-Portal nicht mehr automatisch; der Mitarbeiter bestätigt den nächsten Schritt ausdrücklich über die Portal-Schaltfläche.
