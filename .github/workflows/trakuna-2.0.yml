@@ -173,7 +173,7 @@ jobs:
 
           private val portals = listOf(
               CarrierPortal("DPD Business", "https://www.dpd.com/at/en/sending-parcels/international-shipping-2/business-customers/"),
-              CarrierPortal("GLS / YourGLS", "https://gls-group.eu/AT/en/password-reset"),
+              CarrierPortal("GLS / YourGLS", "https://gls-group.com/AT/de/password-reset"),
               CarrierPortal("Hermes Geschäftskunden", "https://www.myhermes.at/geschaeftskunden/uebersicht/"),
               CarrierPortal("UPS Business / CampusShip", "https://www.ups.com/at/de/business-solutions/business-shipping-tools/ups-campusship"),
               CarrierPortal("DHL Geschäftskunden", "https://www.dhl.com/at-en/home/login.html"),
@@ -265,7 +265,7 @@ jobs:
                               Spacer(Modifier.height(28.dp))
                               Text("Paketdienst weiterleiten", fontSize = 22.sp, fontWeight = FontWeight.Bold)
                               Text(
-                                  "Barcode scannen. TRAKUNA wählt den passenden Anbieter-Einstieg und öffnet dessen Geschäftskundenportal im Browser.",
+                                  "Barcode scannen. TRAKUNA wählt den passenden Anbieter-Einstieg und öffnet den offiziellen Geschäftskunden-Einstieg im Browser.",
                                   color = Color.DarkGray
                               )
                               Spacer(Modifier.height(20.dp))
@@ -308,7 +308,7 @@ jobs:
                                   enabled = selected.isNotBlank(),
                                   modifier = Modifier.fillMaxWidth().height(56.dp),
                                   shape = RoundedCornerShape(14.dp)
-                              ) { Text("BUSINESS-PORTAL ÖFFNEN", fontWeight = FontWeight.Bold) }
+                              ) { Text("GESCHÄFTSKUNDEN-EINSTIEG ÖFFNEN", fontWeight = FontWeight.Bold) }
                               Spacer(Modifier.height(12.dp))
                               Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
                                   Column(Modifier.padding(14.dp)) {
