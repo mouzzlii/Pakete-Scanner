@@ -35,7 +35,7 @@ jobs:
       - name: Android SDK-Lizenzen akzeptieren und Plattform installieren
         shell: bash
         run: |
-          yes | sdkmanager --licenses
+          sdkmanager --licenses </dev/null
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Android-Projekt erstellen
