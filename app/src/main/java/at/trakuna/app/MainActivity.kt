@@ -34,17 +34,6 @@ import java.util.UUID
 private val Forest = Color(0xFF174D39)
 private val Pale = Color(0xFFF1F5F2)
 
-private data class CarrierPortal(val name: String, val url: String)
-
-private val portals = listOf(
-    CarrierPortal("DPD Business", "https://business.dpd.at/"),
-    CarrierPortal("GLS / YourGLS", "https://gls-group.com/authenticate?allowed_locales=en-AT%2Cde-AT&locale=de-AT"),
-    CarrierPortal("Hermes Geschäftskundenbereich", "https://www.myhermes.at/geschaeftskunden/uebersicht/"),
-    CarrierPortal("UPS Business / CampusShip", "https://www.ups.com/at/de/business-solutions/business-shipping-tools/ups-campusship"),
-    CarrierPortal("DHL Geschäftskunden", "https://www.dhl.com/at-de/home/login.html"),
-    CarrierPortal("Österreichische Post / ELLA", "https://ella.post.at/")
-)
-
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -94,12 +83,14 @@ class MainActivity : ComponentActivity() {
         }
 
         fun testWifiEndpoint() {
-            val host = printerHost.trim()
-            val port = printerPort.toIntOrNull()
-            if (host.isBlank() || port == null || port !in 1..65535) {
-                printerStatus = "Bitte IP-Adresse/Host und einen gültigen Port (1–65535) eingeben."
+            val validation = TcpEndpointValidator.parse(printerHost, printerPort)
+            if (validation is TcpEndpointValidation.Invalid) {
+                printerStatus = validation.reason
                 return
             }
+            val endpoint = (validation as TcpEndpointValidation.Valid).endpoint
+            val host = endpoint.host
+            val port = endpoint.port
             printerStatus = "Prüfe Netzwerk-Endpunkt …"
             Thread {
                 val result = try {
@@ -146,7 +137,7 @@ class MainActivity : ComponentActivity() {
                 detected = true
                 status = "Anbieter erkannt: $match. Öffne den offiziellen Geschäftskunden-Einstieg im Browser."
                 try {
-                    val portal = portals.first { it.name == match }
+                    val portal = CarrierPortals.all.first { it.name == match }
                     startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(portal.url)))
                 } catch (_: ActivityNotFoundException) {
                     status = "Anbieter erkannt, aber kein Browser zum Öffnen gefunden."
@@ -172,7 +163,7 @@ class MainActivity : ComponentActivity() {
         }
 
         fun openPortal() {
-            val portal = portals.firstOrNull { it.name == selected }
+            val portal = CarrierPortals.all.firstOrNull { it.name == selected }
             if (portal == null) {
                 status = "Bitte zuerst einen Paketdienst auswählen."
                 return
@@ -234,7 +225,7 @@ class MainActivity : ComponentActivity() {
                     Spacer(Modifier.height(20.dp))
                     Text("ANBIETER", fontWeight = FontWeight.Bold, color = Forest)
                     Spacer(Modifier.height(8.dp))
-                    portals.forEach { portal ->
+                    CarrierPortals.all.forEach { portal ->
                         val active = selected == portal.name
                         OutlinedButton(
                             onClick = {
