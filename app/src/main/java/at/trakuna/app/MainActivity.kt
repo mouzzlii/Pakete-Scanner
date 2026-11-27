@@ -133,10 +133,15 @@ class MainActivity : ComponentActivity() {
             coroutineScope.launch {
                 val result = withContext(Dispatchers.IO) {
                     try {
-                        Socket().use { socket ->
-                            socket.connect(InetSocketAddress(endpoint.host, endpoint.port), 3000)
+                        val resolved = InetAddress.getAllByName(endpoint.host).toList()
+                        if (resolved.isEmpty() || resolved.any { !LocalNetworkAddressPolicy.isAllowed(it) }) {
+                            return@withContext "Aus Sicherheitsgründen sind nur lokale/private Netzwerkadressen als Druckerziel erlaubt."
                         }
-                        "TCP-Endpunkt ${endpoint.host}:${endpoint.port} ist erreichbar. IPP-/Druckerfähigkeit wurde damit noch nicht bestätigt."
+                        // Connect to the already-validated address; do not resolve the hostname again.
+                        Socket().use { socket ->
+                            socket.connect(InetSocketAddress(resolved.first(), endpoint.port), 3000)
+                        }
+                        "Lokaler TCP-Endpunkt ${endpoint.host}:${endpoint.port} ist erreichbar. IPP-/Druckerfähigkeit wurde damit noch nicht bestätigt."
                     } catch (e: Exception) {
                         "Netzwerk-Endpunkt nicht erreichbar: ${e.message ?: "Verbindung fehlgeschlagen"}"
                     }
