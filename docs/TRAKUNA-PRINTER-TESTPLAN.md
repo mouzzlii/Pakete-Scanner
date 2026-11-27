@@ -43,6 +43,12 @@ Abnahmekriterien:
 - Native Zebra-SDK- oder herstellerspezifische Integration ohne konkreten, freigegebenen Modell-/Protokollnachweis.
 - Behauptung einer universellen Kompatibilität ohne reale Modelltests.
 
-## Teststatus
+## Teststatus (Stand 27.11.2026)
 
-Noch nicht implementiert und nicht auf Hardware getestet. Die Matrix ist die Abnahmegrundlage für die spätere Entwicklung.
+- **Im Android-Testbuild enthalten:** manuelle WLAN/LAN-Host-/Port-Prüfung per TCP mit Zeitlimit; die Anzeige weist ausdrücklich darauf hin, dass Erreichbarkeit keine Drucker- oder IPP-Kompatibilität bestätigt.
+- **Im Android-Testbuild enthalten:** Anzeige bereits gekoppelter Bluetooth-Geräte und ausdrücklicher Verbindungstest über Bluetooth Classic SPP/RFCOMM mit Standard-SPP-UUID; es werden keine Druckdaten gesendet.
+- **Build:** GitHub Actions erfolgreich, Run `45996186707`, Commit `1cb7402e148a54692196b85fe5fb1644fd806596`.
+- **Noch nicht implementiert:** IPP/IPPS-Aushandlung und Geräteattribute, mDNS/DNS-SD-Suche, LPR, RAW-TCP-Geräteprofile, BLE/GATT sowie Druckformatadapter.
+- **Hardwaretests:** nicht durchgeführt. Der erfolgreiche CI-Build bestätigt nur die Kompilierung und Artefakterstellung, nicht die Funktion mit einem realen Druckermodell.
+
+Die Matrix bleibt die Abnahmegrundlage für die weiteren Integrationsstufen.
