@@ -155,7 +155,7 @@ internal fun ParcelShopSection() {
                     onDismissRequest = { showClearConfirmation = false },
                     title = { Text("Alle lokalen Demodaten löschen?") },
                     text = {
-                        Text("Es werden alle ${parcels.size} lokal gespeicherten Paket- und Retoureneinträge auf diesem Gerät unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.")
+                        Text("Alle ${parcels.size} Paket- und Retoureneinträge werden aus der lokalen App-Datenbank entfernt. Das ist keine garantierte sichere physische Datenlöschung; verwende deshalb weiterhin ausschließlich synthetische Testcodes.")
                     },
                     confirmButton = {
                         TextButton(onClick = {
