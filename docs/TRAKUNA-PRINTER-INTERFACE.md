@@ -18,7 +18,7 @@ Priorität:
 3. **DNS-SD/mDNS** zur optionalen lokalen Erkennung kompatibler Druckdienste.
 4. **RAW TCP (z. B. Port 9100) und LPR/LPD** nur als optionale, explizit konfigurierte Legacy-Adapter. Keine automatische Übertragung unbekannter Daten.
 
-IP-Adresse/Hostname kann manuell eingetragen werden. Lokale Netzwerkerkennung erfolgt ausschließlich nach einer Nutzeraktion. Netzwerkverbindung und tatsächliche Druckerbereitschaft sind getrennte Zustände.
+IP-Adresse/Hostname kann manuell eingetragen werden. Der erste TCP-Verbindungstest erlaubt ausschließlich lokale/private Zieladressen; öffentliche Ziele und Hostnamen mit öffentlichen DNS-Antworten werden blockiert. Die geprüfte aufgelöste IP-Adresse wird direkt verbunden, um eine zweite DNS-Auflösung zu vermeiden. Lokale Netzwerkerkennung erfolgt ausschließlich nach einer Nutzeraktion. Netzwerkverbindung und tatsächliche Druckerbereitschaft sind getrennte Zustände.
 
 ### 2. Bluetooth
 
