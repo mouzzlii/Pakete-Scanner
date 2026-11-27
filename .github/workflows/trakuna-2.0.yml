@@ -205,7 +205,8 @@ jobs:
                           value.contains("POST") -> "Österreichische Post / ELLA"
                           Regex("""^H\d{19}$""").matches(compact) -> "Hermes Geschäftskunden"
                           Regex("""^Z[A-Z0-9]{7}$""").matches(compact) -> "GLS / YourGLS"
-                          // 11 Ziffern sind nur ein GLS-Kandidat, kein exklusiver Nachweis.\n                          Regex("""^\\d{11}$""").matches(compact) -> "GLS / YourGLS"\n                          Regex("""^\d{14}$""").matches(compact) -> "Hermes Geschäftskunden"
+                          // 11 Ziffern sind nur ein GLS-Kandidat, kein exklusiver Nachweis.
+                          Regex("""^\d{11}$""").matches(compact) -> "GLS / YourGLS"\n                          Regex("""^\d{14}$""").matches(compact) -> "Hermes Geschäftskunden"
                           else -> null
                       }
                   }
