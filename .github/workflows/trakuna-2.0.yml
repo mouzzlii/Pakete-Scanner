@@ -137,6 +137,8 @@ jobs:
           import androidx.activity.ComponentActivity
           import androidx.activity.compose.setContent
           import androidx.compose.foundation.background
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.verticalScroll
           import androidx.compose.foundation.layout.*
           import androidx.compose.foundation.lazy.LazyColumn
           import androidx.compose.foundation.lazy.items
@@ -312,6 +314,12 @@ jobs:
                               Spacer(Modifier.height(18.dp))
 
                               if (page == "home") {
+                                  Column(
+                                      modifier = Modifier
+                                          .weight(1f)
+                                          .fillMaxWidth()
+                                          .verticalScroll(rememberScrollState())
+                                  ) {
                                   Text("Paketshop-Zentrale", fontSize = 22.sp, fontWeight = FontWeight.Bold)
                                   Text("Was möchtest du erledigen?", color = Color.DarkGray)
                                   Spacer(Modifier.height(16.dp))
@@ -360,6 +368,7 @@ jobs:
                                   ) {
                                       Text("SENDUNGSÜBERSICHT  (${parcels.size})")
                                   }
+                                  }
                               } else {
                                   Text("Sendungsübersicht", fontSize = 22.sp, fontWeight = FontWeight.Bold)
                                   Spacer(Modifier.height(10.dp))
@@ -371,7 +380,10 @@ jobs:
                                       singleLine = true
                                   )
                                   Spacer(Modifier.height(8.dp))
-                                  LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                  LazyColumn(
+                                      modifier = Modifier.weight(1f).fillMaxWidth(),
+                                      verticalArrangement = Arrangement.spacedBy(8.dp)
+                                  ) {
                                       items(
                                           parcels.filter {
                                               it.code.contains(search, true) ||
