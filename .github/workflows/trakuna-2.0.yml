@@ -178,6 +178,15 @@ jobs:
               val time: Long
           )
 
+          data class EventRecord(
+              val id: String,
+              val action: String,
+              val code: String,
+              val carrier: String,
+              val detail: String,
+              val time: Long
+          )
+
           class MainActivity : ComponentActivity() {
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
@@ -190,6 +199,11 @@ jobs:
                   val parcels = remember {
                       mutableStateListOf<Parcel>().apply {
                           addAll(readParcels(prefs.getString("parcels", "[]") ?: "[]"))
+                      }
+                  }
+                  val events = remember {
+                      mutableStateListOf<EventRecord>().apply {
+                          addAll(readEvents(prefs.getString("events", "[]") ?: "[]"))
                       }
                   }
 
@@ -207,6 +221,21 @@ jobs:
 
                   fun persist() {
                       prefs.edit().putString("parcels", writeParcels(parcels)).apply()
+                  }
+
+                  fun addEvent(action: String, parcelCode: String, parcelCarrier: String, detail: String = "") {
+                      events.add(
+                          0,
+                          EventRecord(
+                              System.currentTimeMillis().toString(),
+                              action,
+                              parcelCode,
+                              parcelCarrier,
+                              detail,
+                              System.currentTimeMillis()
+                          )
+                      )
+                      prefs.edit().putString("events", writeEvents(events)).apply()
                   }
 
                   fun detectCarrier(rawValue: String): String? {
@@ -263,8 +292,10 @@ jobs:
                               message = "Diese Sendung wurde bereits abgeholt."
                               return
                           }
-                          parcels[index] = parcels[index].copy(status = "Abgeholt")
+                          val pickedUp = parcels[index]
+                          parcels[index] = pickedUp.copy(status = "Abgeholt")
                           persist()
+                          addEvent("Abholung", pickedUp.code, pickedUp.carrier, "Sendung an Kunden ausgegeben")
                           message = "Abholung lokal dokumentiert."
                           showForm = false
                           return
@@ -299,6 +330,13 @@ jobs:
                           )
                       )
                       persist()
+                      addEvent(
+                          formType,
+                          entered,
+                          carrier,
+                          listOfNotNull(customer.trim().takeIf { it.isNotBlank() }?.let { "Kunde: $it" },
+                              note.trim().takeIf { it.isNotBlank() }).joinToString(" • ")
+                      )
                       message = if (pin.isNotEmpty()) {
                           "Lokal gespeichert. Abhol-PIN: $pin"
                       } else {
@@ -404,8 +442,15 @@ jobs:
                                   ) {
                                       Text("SENDUNGSÜBERSICHT  (${parcels.size})")
                                   }
+                                  Spacer(Modifier.height(8.dp))
+                                  OutlinedButton(
+                                      onClick = { page = "events" },
+                                      modifier = Modifier.fillMaxWidth()
+                                  ) {
+                                      Text("EREIGNISVERZEICHNIS  (${events.size})")
                                   }
-                              } else {
+                                  }
+                              } else if (page == "list") {
                                   Text("Sendungsübersicht", fontSize = 22.sp, fontWeight = FontWeight.Bold)
                                   Spacer(Modifier.height(10.dp))
                                   OutlinedTextField(
@@ -441,6 +486,41 @@ jobs:
                                                       fontSize = 12.sp,
                                                       color = Color.Gray
                                                   )
+                                              }
+                                          }
+                                      }
+                                  }
+                                  Spacer(Modifier.height(8.dp))
+                                  OutlinedButton(
+                                      onClick = { page = "home" },
+                                      modifier = Modifier.fillMaxWidth()
+                                  ) { Text("ZURÜCK") }
+                              } else {
+                                  Text("Ereignisverzeichnis", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                                  Text("Lokal gespeicherter Verlauf aller Paketvorgänge", color = Color.DarkGray, fontSize = 12.sp)
+                                  Spacer(Modifier.height(10.dp))
+                                  if (events.isEmpty()) {
+                                      Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                          Text("Noch keine Ereignisse vorhanden.", color = Color.Gray)
+                                      }
+                                  } else {
+                                      LazyColumn(
+                                          modifier = Modifier.weight(1f).fillMaxWidth(),
+                                          verticalArrangement = Arrangement.spacedBy(8.dp)
+                                      ) {
+                                          items(events, key = { it.id }) { event ->
+                                              Card(modifier = Modifier.fillMaxWidth()) {
+                                                  Column(Modifier.padding(12.dp)) {
+                                                      Text(event.action.uppercase(Locale.ROOT), fontWeight = FontWeight.Bold, color = Forest)
+                                                      Text(event.code, fontWeight = FontWeight.SemiBold)
+                                                      Text("Paketdienst: ${event.carrier}")
+                                                      if (event.detail.isNotBlank()) Text(event.detail, fontSize = 12.sp)
+                                                      Text(
+                                                          SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date(event.time)),
+                                                          fontSize = 11.sp,
+                                                          color = Color.Gray
+                                                      )
+                                                  }
                                               }
                                           }
                                       }
@@ -542,6 +622,40 @@ jobs:
                       })
                   }
                   return array.toString()
+              }
+
+              private fun writeEvents(items: List<EventRecord>): String {
+                  val array = JSONArray()
+                  items.forEach { e ->
+                      array.put(JSONObject().apply {
+                          put("id", e.id)
+                          put("action", e.action)
+                          put("code", e.code)
+                          put("carrier", e.carrier)
+                          put("detail", e.detail)
+                          put("time", e.time)
+                      })
+                  }
+                  return array.toString()
+              }
+
+              private fun readEvents(raw: String): List<EventRecord> {
+                  return try {
+                      val array = JSONArray(raw)
+                      (0 until array.length()).map { i ->
+                          val o = array.getJSONObject(i)
+                          EventRecord(
+                              o.optString("id"),
+                              o.optString("action"),
+                              o.optString("code"),
+                              o.optString("carrier"),
+                              o.optString("detail"),
+                              o.optLong("time")
+                          )
+                      }
+                  } catch (_: Exception) {
+                      emptyList()
+                  }
               }
 
               private fun readParcels(raw: String): List<Parcel> {
