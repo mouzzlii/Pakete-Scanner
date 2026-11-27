@@ -36,4 +36,10 @@ class LocalNetworkAddressPolicyTest {
     @Test fun rejectsPublicIpv6Addresses() {
         assertFalse(LocalNetworkAddressPolicy.isAllowed(address("2001:4860:4860::8888")))
     }
+
+    @Test fun rejectsUnspecifiedAndMulticastAddresses() {
+        assertFalse(LocalNetworkAddressPolicy.isAllowed(address("0.0.0.0")))
+        assertFalse(LocalNetworkAddressPolicy.isAllowed(address("224.0.0.1")))
+        assertFalse(LocalNetworkAddressPolicy.isAllowed(address("ff02::1")))
+    }
 }
