@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteConstraintException
 import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteException
 import android.database.sqlite.SQLiteOpenHelper
 
 internal sealed interface ParcelStoreResult {
@@ -16,7 +17,7 @@ internal sealed interface ParcelStoreResult {
  * The database stores only the minimal fields of ParcelRecord.
  */
 internal class ParcelDatabase(context: Context) :
-    SQLiteOpenHelper(context.applicationContext, "trakuna-parcels.db", null, 1) {
+    SQLiteOpenHelper(context.applicationContext, DATABASE_NAME, null, DATABASE_VERSION) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -39,7 +40,13 @@ internal class ParcelDatabase(context: Context) :
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // Versioned migrations must be added here before changing the schema version.
+        // Fail closed: never silently open a database whose schema was not migrated.
+        throw SQLiteException("Keine Datenbankmigration von Version $oldVersion auf $newVersion implementiert.")
+    }
+
+    override fun onDowngrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        // Downgrades can discard or misinterpret user data; require an explicit migration.
+        throw SQLiteException("Datenbank-Downgrade von Version $oldVersion auf $newVersion ist nicht erlaubt.")
     }
 
     fun all(): List<ParcelRecord> {
@@ -75,6 +82,8 @@ internal class ParcelDatabase(context: Context) :
             ParcelStoreResult.Saved(accepted)
         } catch (_: SQLiteConstraintException) {
             ParcelStoreResult.Rejected("Dieser Barcode oder diese Vorgangs-ID ist bereits offen vorhanden.")
+        } catch (_: SQLiteException) {
+            ParcelStoreResult.Rejected("Die lokale Datenbank konnte den Vorgang nicht speichern.")
         }
     }
 
@@ -86,13 +95,20 @@ internal class ParcelDatabase(context: Context) :
         if (validation is ParcelOperation.Rejected) return ParcelStoreResult.Rejected(validation.reason)
         val updated = (validation as ParcelOperation.Accepted).parcel
         return try {
+            // Compare-and-set prevents a second database instance from overwriting a
+            // status change made after this method read the current record.
             val changed = writableDatabase.update(
-                "parcels", updated.toContentValues(), "id = ?", arrayOf(id)
+                "parcels",
+                updated.toContentValues(),
+                "id = ? AND status = ? AND updated_at = ?",
+                arrayOf(id, current.status.name, current.updatedAtEpochMillis.toString())
             )
             if (changed == 1) ParcelStoreResult.Saved(updated)
-            else ParcelStoreResult.Rejected("Paketvorgang konnte nicht aktualisiert werden.")
+            else ParcelStoreResult.Rejected("Der Vorgang wurde zwischenzeitlich geändert. Bitte Liste aktualisieren.")
         } catch (_: SQLiteConstraintException) {
             ParcelStoreResult.Rejected("Die Änderung verletzt eine Datenbankregel.")
+        } catch (_: SQLiteException) {
+            ParcelStoreResult.Rejected("Die lokale Datenbank konnte den Vorgang nicht aktualisieren.")
         }
     }
 
@@ -104,5 +120,10 @@ internal class ParcelDatabase(context: Context) :
         put("created_at", createdAtEpochMillis)
         put("updated_at", updatedAtEpochMillis)
         put("storage_location", storageLocation)
+    }
+
+    private companion object {
+        const val DATABASE_NAME = "trakuna-parcels.db"
+        const val DATABASE_VERSION = 1
     }
 }
