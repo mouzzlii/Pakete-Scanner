@@ -61,6 +61,19 @@ class ParcelDatabaseTest {
     }
 
     @Test
+    fun databaseUniqueIndexRejectsDuplicateAcrossSeparateInstances() {
+        val secondDatabase = ParcelDatabase(context)
+        try {
+            assertTrue(database.register(sample) is ParcelStoreResult.Saved)
+            val duplicate = sample.copy(id = "db-test-2", barcode = "test-db-123")
+            assertTrue(secondDatabase.register(duplicate) is ParcelStoreResult.Rejected)
+            assertEquals(1, database.all().size)
+        } finally {
+            secondDatabase.close()
+        }
+    }
+
+    @Test
     fun allowsBarcodeReuseAfterCompletedHandover() {
         assertTrue(database.register(sample) is ParcelStoreResult.Saved)
         assertTrue(database.updateStatus(sample.id, ParcelStatus.STORED, 1_100L, "A-02") is ParcelStoreResult.Saved)
@@ -68,6 +81,17 @@ class ParcelDatabaseTest {
         assertTrue(database.updateStatus(sample.id, ParcelStatus.HANDED_OVER, 1_300L) is ParcelStoreResult.Saved)
 
         val nextParcel = sample.copy(id = "db-test-2", barcode = "test-db-123")
+        assertTrue(database.register(nextParcel) is ParcelStoreResult.Saved)
+        assertEquals(2, database.all().size)
+    }
+
+    @Test
+    fun allowsBarcodeReuseAfterCompletedReturn() {
+        val returnParcel = sample.copy(status = ParcelStatus.RETURN_RECEIVED)
+        assertTrue(database.register(returnParcel) is ParcelStoreResult.Saved)
+        assertTrue(database.updateStatus(returnParcel.id, ParcelStatus.RETURNED_TO_CARRIER, 1_100L) is ParcelStoreResult.Saved)
+
+        val nextParcel = sample.copy(id = "db-test-2")
         assertTrue(database.register(nextParcel) is ParcelStoreResult.Saved)
         assertEquals(2, database.all().size)
     }
