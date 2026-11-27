@@ -1,38 +1,63 @@
-# TRAKUNA – BB-Testversion
+# TRAKUNA – Android-Testversion
 
-TRAKUNA ist in dieser Teststufe eine schlanke Weiterleitung zu den Geschäftskunden-Einstiegen der Paketdienste.
+TRAKUNA ist in dieser Teststufe ein schlanker Barcode-Scanner und Weiterleitungshelfer für ausgewählte Geschäftskunden-Einstiege von Paketdiensten.
 
 ## Ablauf
 
-1. Barcode mit der Smartphone-Kamera scannen oder über einen externen Scanner im Tastaturmodus (HID/Keyboard-Wedge) in das Codefeld einlesen.
-2. TRAKUNA erkennt den Paketdienst nur anhand eindeutiger Kennzeichen bzw. bekannter Formate.
-3. Bei unklaren Codes wird nichts automatisch zugeordnet; der Anbieter kann manuell gewählt werden.
-4. Der passende Anbieter-Einstieg wird im externen Android-Browser geöffnet. Anmeldung und alle weiteren Schritte erfolgen ausschließlich beim Anbieter.
+1. Barcode mit dem Smartphone-Kamera-Scanner erfassen oder über einen externen HID-/Keyboard-Wedge-Scanner in das Codefeld eingeben.
+2. **„ANBIETER ERKENNEN & PORTAL ÖFFNEN“** antippen.
+3. TRAKUNA ordnet nur eindeutig unterstützte Kennzeichen bzw. Barcode-Muster zu. Bei unbekannten oder mehrdeutigen Codes erfolgt keine automatische Zuordnung.
+4. Bei eindeutiger Erkennung öffnet TRAKUNA den hinterlegten Anbieter-Einstieg im externen Android-Browser. Andernfalls kann der Anbieter manuell ausgewählt werden.
+5. Anmeldung und alle weiteren Schritte erfolgen ausschließlich beim jeweiligen Anbieter.
 
-## Sicherheits- und Funktionsgrenzen
+**Wichtig:** TRAKUNA fügt den Barcode nicht automatisch in das Anbieterportal ein und überträgt ihn nicht an einen TRAKUNA-Server. Der Code bleibt in der App sichtbar.
 
-- TRAKUNA speichert keine Anbieterpasswörter und übermittelt keine Zugangsdaten.
-- Die Android-App hat keine eigene Internetberechtigung; Webseiten werden mit einer externen Browser-App geöffnet.
-- Keine Paketannahme, Abholung, Buchung, Versandlabel-Erstellung, Etikettenbestellung oder Druckaktion in TRAKUNA.
-- Keine Speicherung gescannter Paketdaten auf einem Server.
-- Die Hermes-Auswahl öffnet den Hermes-Geschäftskundenbereich. Ein separater, öffentlich zugänglicher Login für das Geschäftskundenportal konnte nicht eindeutig verifiziert werden.
-- Der externe Zebra-Scanner wird in dieser Teststufe nur unterstützt, wenn er Barcodes als Tastatureingabe (HID/Keyboard-Wedge) sendet. Es ist keine native Zebra-SDK-Integration.
-- Zebra-/Etikettendrucker sind in dieser Version noch nicht angebunden; es wird nichts gedruckt.
+## Unterstützte Anbieter-Einstiege
+
+- DPD Business
+- GLS / YourGLS
+- Hermes Geschäftskundenbereich
+- UPS Business / CampusShip
+- DHL Geschäftskunden
+- Österreichische Post / ELLA
+
+Die Portaladressen können sich ändern. Vor einem produktiven Einsatz müssen sie aktuell geprüft und auf den jeweiligen Shop-Prozess abgestimmt werden.
 
 ## Grenzen der automatischen Erkennung
 
-Die Erkennung nutzt nur eindeutige Textkennzeichen und bekannte Formate:
-- Hermes: 14 Ziffern oder H gefolgt von 19 Ziffern.
-- GLS YourGLS Track-ID: Z gefolgt von 7 alphanumerischen Zeichen.
+Die aktuelle Implementierung nutzt diese begrenzten Kandidaten:
 
-Diese Muster sind keine vollständige Erkennung aller Paketlabel. Unbekannte oder mehrdeutige Formate bleiben bewusst unerkannt. Insbesondere wird eine beliebige 11-stellige Nummer nicht automatisch GLS zugeordnet. Für die beiden zuvor nicht erkannten GLS- und Hermes-Testpakete liegen in diesem Repository keine originalen Barcode-Inhalte vor; die Erkennung dieser konkreten Labels ist daher noch nicht nachgewiesen.
+- Hermes: `104` gefolgt von 19 Ziffern.
+- GLS: `872` gefolgt von 10 Ziffern.
+- DPD: `P` gefolgt von 12 Ziffern.
+- UPS: `1Z` gefolgt von 16 alphanumerischen Zeichen.
+- Klar erkennbare Anbieterkennzeichnungen im eingegebenen Text können ebenfalls zugeordnet werden.
+
+Diese Muster decken nicht alle nationalen und internationalen Sendungsnummern ab und sind kein Beweis für die tatsächliche Zugehörigkeit eines Codes zu einem Paketdienst. DHL und Österreichische Post werden nicht anhand allgemeiner Nummernformate automatisch zugeordnet. Bei Unsicherheit bitte manuell auswählen.
+
+## Drucker – aktueller Umfang
+
+- WLAN/LAN: manuelle TCP-Erreichbarkeitsprüfung eines selbst eingegebenen Hosts und Ports.
+- Bluetooth: Anzeige bereits gekoppelter Geräte und ein ausdrücklicher Bluetooth-Classic-SPP-Verbindungsversuch.
+- Es werden keine Druckdaten oder Etiketten gesendet oder erzeugt.
+- Eine erreichbare TCP-Adresse oder erfolgreiche SPP-Verbindung beweist weder IPP-Unterstützung noch Druckbereitschaft.
+- IPP/IPPS, mDNS/DNS-SD, LPR, BLE/GATT und Druckformatadapter sind noch nicht implementiert.
+
+## Sicherheits- und Funktionsgrenzen
+
+- Keine Passwörter oder Zugangsdaten in TRAKUNA.
+- Keine Paketannahme, Abholung, Buchung, Versandlabel-Erstellung, Etikettenbestellung oder Carrier-Aktion.
+- Keine Speicherung gescannter Paketdaten auf einem TRAKUNA-Server.
+- Die Android-App besitzt die INTERNET-Berechtigung ausschließlich für den vom Nutzer gestarteten TCP-Verbindungstest zum manuell eingegebenen Netzwerk-Endpunkt.
+- Der externe HID-Scanner wird als Tastatureingabe unterstützt; es gibt keine native Zebra-SDK-Integration.
+- Kein Produktivbetrieb und keine Produktivfreigabe durch den erfolgreichen Build.
 
 ## Teststatus
 
-- GitHub Actions Debug-APK-Build: erfolgreich für Commit `f62ad27aa13b082f166e83296eb98ed0256fdce5`.
-- APK: Debug-/Testversion, nicht produktionsreif.
-- Android-Gerätetest, Kamera-Scan mit echten GLS-/Hermes-Labels, Zebra-HID-Test und Druckertest: noch nicht durchgeführt.
-- Der erfolgreiche Build belegt nur, dass das Android-Projekt kompiliert und die APK erstellt wurde; er belegt nicht, dass alle Anbieterportale auf jedem Gerät korrekt öffnen.
+- GitHub Actions Debug-APK: Build erfolgreich für den zuletzt dokumentierten Workflow-Lauf; siehe [GitHub Actions](https://github.com/mouzzlii/Pakete-Scanner/actions/workflows/trakuna-2.0.yml).
+- Android-Gerätetests, Kamera-Scan auf realer Hardware, HID-Scanner- und Drucker-Hardwaretests müssen separat durchgeführt und dokumentiert werden.
+- Der CI-Build belegt nur Kompilierung und Artefakterstellung, nicht die Funktion auf einem konkreten Android-Gerät oder mit einem konkreten Druckermodell.
+- Für einen kleinen internen Test gibt es die [Mitarbeiter-Testanleitung](docs/TRAKUNA-SHOP-MITARBEITERTEST.md).
 
 ## Rechte und Vertraulichkeit
 
