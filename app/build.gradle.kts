@@ -31,6 +31,12 @@ android {
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
+        unitTests.all {
+            // Robolectric fetches Android framework jars outside Gradle's dependency resolver.
+            // Use Maven Central's canonical endpoint instead of the default repo1 hostname.
+            it.systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
+            it.systemProperty("robolectric.dependency.repo.id", "mavenCentralDirect")
+        }
     }
 }
 
