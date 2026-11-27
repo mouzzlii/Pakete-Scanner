@@ -36,6 +36,7 @@
 - Nur synthetische Fantasie-Barcodes verwenden, die garantiert keiner echten Sendung zugeordnet sind.
 - Optional den lokalen Demoablauf durchspielen: Paket annehmen, Lagerplatz vergeben, als abholbereit markieren und Übergabe bestätigen. Für Retouren den getrennten Retourenablauf prüfen.
 - Prüfen, ob Status und Lagerplatz nach einem App-Neustart erhalten bleiben.
+- Anschließend die Funktion „Lokale Demodaten löschen“ testen: Abbrechen darf nichts löschen; erst die ausdrückliche Bestätigung darf alle lokalen Demo-Einträge entfernen.
 - Diese lokale Demo führt keine echte Paketannahme, Benachrichtigung, Carrier-Buchung oder Übergabe aus. Die Datenbank speichert Barcodes derzeit unverschlüsselt; niemals echte Kundendaten eingeben.
 
 ### 5. Drucker-Verbindung – optional
@@ -71,6 +72,8 @@ Bitte für jeden Punkt **OK / Fehler / nicht getestet** angeben und bei Fehlern 
 | Portal öffnet sich | | |
 | Lokale Paketverwaltung (optional) | | |
 | Status bleibt nach Neustart erhalten (optional) | | |
+| Demo-Löschdialog: Abbrechen / Bestätigen (optional) | | |
+| Demo-Einträge nach Löschung entfernt (optional) | | |
 | WLAN/LAN-Erreichbarkeit (optional) | | |
 | Bluetooth-SPP-Verbindung (optional) | | |
 | Fehlermeldungen verständlich | | |
