@@ -63,7 +63,7 @@ Statusmodell:
 
 - Bluetooth ab Android 12: `BLUETOOTH_SCAN` für Suche und `BLUETOOTH_CONNECT` für Kommunikation mit gekoppelten Geräten; nur die tatsächlich benötigten Berechtigungen anfordern. `BLUETOOTH_ADVERTISE` ist für diese App nicht vorgesehen.
 - Ältere Android-Versionen benötigen die jeweils passenden Legacy-Berechtigungen; die Implementierung muss SDK-abhängig sein.
-- WLAN/LAN-Zugriff benötigt passende Netzwerkberechtigungen. Ab Android 17 / Target SDK 37 ist zusätzlich `ACCESS_LOCAL_NETWORK` als Laufzeitberechtigung relevant. Bis zur gezielten Einführung bleibt die bestehende App ohne Netzwerkzugriff.
+- WLAN/LAN-Zugriff benötigt passende Netzwerkberechtigungen. Ab Android 17 / Target SDK 37 ist zusätzlich `ACCESS_LOCAL_NETWORK` als Laufzeitberechtigung relevant. Die aktuelle Test-App besitzt die INTERNET-Berechtigung ausschließlich für den vom Nutzer gestarteten TCP-Erreichbarkeitstest eines manuell eingegebenen Endpunkts; sie führt keine automatische Netzwerkerkennung oder Portsuche durch.
 - Keine Hintergrundsuche und kein breitflächiger Portscan.
 - Keine Speicherung von WLAN-Schlüsseln, Druckerpasswörtern oder Zugangsdaten im Klartext.
 - Verbindungen werden sichtbar und auf Nutzerwunsch hergestellt; keine automatischen Druckaufträge beim Verbinden.
@@ -79,6 +79,6 @@ Statusmodell:
 
 ## Projektgrenze und aktueller Status
 
-Die vorhandene TRAKUNA-Test-App besitzt derzeit keine Druckerverbindung. Dieses Dokument ist eine technische Spezifikation, keine Behauptung über bereits implementierte oder getestete Funktionen.
+Die vorhandene TRAKUNA-Test-App enthält bereits begrenzte Verbindungstests: manuelle TCP-Erreichbarkeitsprüfung eines eingegebenen WLAN-/LAN-Endpunkts sowie Anzeige gekoppelter Bluetooth-Geräte und einen ausdrücklichen Bluetooth-Classic-SPP-Verbindungsversuch. Diese Tests senden keine Druckdaten und liefern keine IPP-Geräteattribute. Sie beweisen weder Druckerkompatibilität noch Druckbereitschaft. IPP/IPPS, mDNS/DNS-SD, LPR, RAW-TCP-Geräteprofile, BLE/GATT und Druckformatadapter sind noch nicht implementiert. Hardwaretests stehen aus.
 
 Die laufende Teststufe bleibt Scanner und Weiterleitung zu externen Anbieterportalen. Es werden keine echten Paketetiketten erstellt oder gedruckt und keine Paketvorgänge ausgelöst. Die erste spätere Drucker-Ausbaustufe darf ausschließlich Geräteverwaltung und Verbindungstests enthalten, bis die Druckfunktion separat freigegeben wird.
