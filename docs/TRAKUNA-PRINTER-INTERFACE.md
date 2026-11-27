@@ -1,47 +1,84 @@
-# TRAKUNA – offene Druckerschnittstelle
+# TRAKUNA – offene, herstellerunabhängige Druckerschnittstelle
 
-## Produktanforderung
+## Verbindliche Produktanforderung
 
-TRAKUNA soll Drucker möglichst herstellerunabhängig über WLAN/LAN und Bluetooth anbinden können. Die App darf nicht auf Zebra oder einen einzelnen Druckertyp festgelegt werden. Unterstützte Geräte sollen über eine gemeinsame Drucker-Verwaltung gefunden, verbunden, geprüft und später über passende Protokollmodule angesprochen werden.
+TRAKUNA soll Drucker verschiedener Hersteller über WLAN/LAN oder Bluetooth anbinden können. Es gibt keine Festlegung auf Zebra. Die gemeinsame Geräteverwaltung soll Geräte finden bzw. manuell hinzufügen, verbinden, trennen, Fähigkeiten anzeigen und den Verbindungs-/Gerätestatus verständlich darstellen.
 
-„Alle Geräte“ ist ein Kompatibilitätsziel, keine pauschale technische Garantie: Ein Drucker ist nur integrierbar, wenn er über eine dokumentierte, erreichbare Schnittstelle und ein unterstütztes Druck-/Datenformat verfügt. Proprietäre Apps, geschlossene Pairing-Verfahren und herstellerspezifische Protokolle benötigen gegebenenfalls eigene Adapter.
+**Kompatibilitätsversprechen:** „Offen für alle Geräte“ ist ein Architekturziel, keine Garantie, dass jeder Drucker ohne Adapter funktioniert. Eine Integration ist nur möglich, wenn das Gerät ein dokumentiertes und erreichbares Protokoll bzw. Profil anbietet. Geschlossene Herstellerprotokolle brauchen einen eigenen Adapter oder einen installierten Android-Druckdienst.
 
-## Architektur
+## Architekturprinzip: Transport ≠ Druckersprache
 
-### 1. Transportebene
-- WLAN/LAN: Geräte im lokalen Netzwerk erkennen, sofern sie Discovery erlauben; direkte Verbindung über IP/Hostname.
-- IPP/IPPS: bevorzugter standardisierter Netzwerk-Druckweg, wenn vom Gerät unterstützt.
-- RAW TCP (häufig Port 9100) und LPR nur als optionale, explizit konfigurierte Kompatibilitätswege.
-- Bluetooth Classic (SPP/RFCOMM) und BLE nur dort, wo das Gerät ein geeignetes Profil bzw. GATT-Protokoll bereitstellt.
-- USB ist nicht Teil der aktuellen WLAN/Bluetooth-Anforderung; kann später als separater Adapter ergänzt werden.
+Die Verbindung (WLAN/Bluetooth) und das Datenformat (z. B. PDF/ZPL/ESC-POS) werden getrennt behandelt. Ein Gerät gilt nicht allein deshalb als druckfähig, weil eine Funkverbindung besteht.
 
-### 2. Druckersprachen-/Formatadapter
-Transport und Druckersprache strikt trennen. Adapter bei Bedarf für ZPL, EPL, CPCL, ESC/POS, PDF bzw. standardisierte IPP-Dokumentformate. Nicht annehmen, dass jeder Drucker jedes Format versteht. Fähigkeiten pro Gerät speichern/anzeigen, nicht durch bloße Herstellererkennung erraten.
+### 1. WLAN/LAN
 
-### 3. Gemeinsame Drucker-Schnittstelle
-Einheitliche Funktionen für:
-- Geräte suchen/hinzufügen und manuell per IP/Verbindungsart konfigurieren
-- verbinden/trennen und Verbindung prüfen
-- unterstützte Funktionen/Formate anzeigen
-- Status und verständliche Fehler melden
-- später einen ausdrücklich freigegebenen Test-/Druckauftrag über einen passenden Adapter senden
+Priorität:
+1. **IPP/IPPS** als bevorzugter offener Netzwerkstandard, wenn vom Drucker unterstützt. IPP kann Gerätefähigkeiten und Status abfragen; IPPS ergänzt Transportverschlüsselung.
+2. **Android-Druckdienste / Systemdruck-Framework** als Kompatibilitätsweg für Geräte, deren Hersteller oder Mopria/AirPrint-kompatible Druckdienste bereits Android-seitig eingebunden sind.
+3. **DNS-SD/mDNS** zur optionalen lokalen Erkennung kompatibler Druckdienste.
+4. **RAW TCP (z. B. Port 9100) und LPR/LPD** nur als optionale, explizit konfigurierte Legacy-Adapter. Keine automatische Übertragung unbekannter Daten.
 
-## Android-Berechtigungen und Sicherheit
-- WLAN-Erkennung und Bluetooth benötigen versionsabhängige Android-Berechtigungen; nur bei tatsächlicher Nutzung anfordern.
-- Bluetooth-Pairing und Netzwerkzugriff transparent durch den Nutzer bestätigen lassen.
-- Keine Druckerpasswörter oder Zugangsdaten protokollieren.
-- Keine Druckaufträge automatisch beim Verbinden senden.
-- Netzwerkgeräte nicht unkontrolliert scannen; lokale Netzwerkerkennung nur nach Nutzeraktion.
-- Verbindungsstatus und tatsächliche Druckfähigkeit unterscheiden.
+IP-Adresse/Hostname kann manuell eingetragen werden. Lokale Netzwerkerkennung erfolgt ausschließlich nach einer Nutzeraktion. Netzwerkverbindung und tatsächliche Druckerbereitschaft sind getrennte Zustände.
 
-## Stufenweise Umsetzung und Abnahme
+### 2. Bluetooth
 
-1. **Bestandsaufnahme:** Android-Zielversionen, vorhandene Bibliotheken, Berechtigungen und Build-Workflow prüfen.
-2. **Geräteverwaltung:** manuelles Hinzufügen, WLAN-/Bluetooth-Verbindung und Statusanzeige, zunächst ohne Druckauftrag.
-3. **Standardprotokolle:** IPP/IPPS priorisieren; weitere Transportwege nur mit dokumentiertem Geräteprofil.
-4. **Formatadapter:** erst nach verifizierter Gerätefähigkeit.
-5. **Tests:** simulierte Geräte/Protokolle, danach reale Hardware je Modell und Transportweg; Ergebnisse pro Modell dokumentieren.
+- **Bluetooth Classic (SPP/RFCOMM):** nur für Geräte, die ein passendes serielles Profil und ein bekanntes Protokoll bereitstellen.
+- **Bluetooth Low Energy (BLE):** nur mit dokumentiertem GATT-Service/Characteristic-Profil des Geräts.
+- Es gibt kein universelles Bluetooth-Druckprotokoll, das jedes Modell gleich ansprechen würde. Deshalb sind Geräte-/Herstelleradapter nötig.
+- Gekoppelte Geräte können als erster sicherer Schritt angezeigt werden. Scannen/Koppeln/Verbinden erst nach verständlicher Nutzeraktion und den erforderlichen Android-Berechtigungen.
 
-## Aktueller Projektstand / Grenze
+### 3. Druckformat-Adapter
 
-Die bestehende TRAKUNA-Test-App hat derzeit keine implementierte Druckerverbindung. Diese Datei dokumentiert die Zielarchitektur; sie ist keine Behauptung, dass WLAN, Bluetooth oder Drucken bereits funktionieren. Bis zu einer ausdrücklichen Freigabe bleibt die App ein Scanner-/Weiterleitungs-Test. Es werden keine echten Paketetiketten erzeugt oder gedruckt und keine Paketvorgänge ausgelöst.
+Mögliche Adapter – nur wenn das konkrete Gerät das Format bestätigt:
+- PDF / PWG Raster / JPEG für standardisierte Dokumentausgabe
+- ZPL / EPL / CPCL für bestimmte Etikettendrucker
+- ESC/POS für bestimmte Belegdrucker
+- PCL und weitere Herstellerformate nur bei nachgewiesener Unterstützung
+
+Nicht aus dem Markennamen oder einer erfolgreichen Bluetooth-/WLAN-Verbindung auf unterstützte Formate schließen.
+
+## Gemeinsamer Schnittstellenvertrag
+
+Jeder Adapter implementiert dieselben konzeptionellen Operationen:
+- `discover(userInitiated)` – kompatible Geräte suchen
+- `addManual(connectionDetails)` – Gerät manuell hinzufügen
+- `connect(device)` / `disconnect(device)`
+- `getConnectionState(device)`
+- `getCapabilities(device)`
+- `getStatus(device)`
+- `sendTestPayload(device, payload)` – erst in einer späteren, ausdrücklich freigegebenen Druckphase
+
+Statusmodell:
+- Nicht eingerichtet
+- Gefunden / gekoppelt
+- Verbindung wird hergestellt
+- Verbunden
+- Druckerstatus unbekannt
+- Bereit / Papier fehlt / Fehler (nur wenn das Protokoll diesen Status tatsächlich liefert)
+- Nicht erreichbar / Berechtigung fehlt
+
+**Keine Scheinerfolge:** „Verbunden“ bedeutet nicht „druckbereit“. Ein Testpayload ist nicht Teil der ersten Verbindungsstufe.
+
+## Android-Sicherheit und Berechtigungen
+
+- Bluetooth ab Android 12: `BLUETOOTH_SCAN` für Suche und `BLUETOOTH_CONNECT` für Kommunikation mit gekoppelten Geräten; nur die tatsächlich benötigten Berechtigungen anfordern. `BLUETOOTH_ADVERTISE` ist für diese App nicht vorgesehen.
+- Ältere Android-Versionen benötigen die jeweils passenden Legacy-Berechtigungen; die Implementierung muss SDK-abhängig sein.
+- WLAN/LAN-Zugriff benötigt passende Netzwerkberechtigungen. Ab Android 17 / Target SDK 37 ist zusätzlich `ACCESS_LOCAL_NETWORK` als Laufzeitberechtigung relevant. Bis zur gezielten Einführung bleibt die bestehende App ohne Netzwerkzugriff.
+- Keine Hintergrundsuche und kein breitflächiger Portscan.
+- Keine Speicherung von WLAN-Schlüsseln, Druckerpasswörtern oder Zugangsdaten im Klartext.
+- Verbindungen werden sichtbar und auf Nutzerwunsch hergestellt; keine automatischen Druckaufträge beim Verbinden.
+
+## Stufenplan
+
+1. **Spezifikation und Kompatibilitätsmatrix** – abgeschlossen mit diesem Dokument und dem Testplan.
+2. **Geräteverwaltung ohne Druckaufträge** – manuelles WLAN-Gerät hinzufügen, gekoppelte Bluetooth-Geräte anzeigen, Verbindung testen, Status darstellen.
+3. **WLAN-Standardadapter** – IPP/IPPS und unterstützte Discovery.
+4. **Bluetooth-Adapter** – zuerst SPP für nachweislich kompatible Geräte; BLE pro dokumentiertem Gerätemodell.
+5. **Formatadapter** – erst nach Gerätefähigkeitsprüfung.
+6. **Druckfunktion** – separates Freigabe-/Abnahmetor; nicht Teil der aktuellen Teststufe.
+
+## Projektgrenze und aktueller Status
+
+Die vorhandene TRAKUNA-Test-App besitzt derzeit keine Druckerverbindung. Dieses Dokument ist eine technische Spezifikation, keine Behauptung über bereits implementierte oder getestete Funktionen.
+
+Die laufende Teststufe bleibt Scanner und Weiterleitung zu externen Anbieterportalen. Es werden keine echten Paketetiketten erstellt oder gedruckt und keine Paketvorgänge ausgelöst. Die erste spätere Drucker-Ausbaustufe darf ausschließlich Geräteverwaltung und Verbindungstests enthalten, bis die Druckfunktion separat freigegeben wird.
