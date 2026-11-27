@@ -53,6 +53,25 @@ class ParcelDatabaseTest {
     }
 
     @Test
+    fun clearAllDeletesOnlyLocalParcelDemoRecords() {
+        assertTrue(database.register(sample) is ParcelStoreResult.Saved)
+        assertTrue(database.register(sample.copy(id = "db-test-2", barcode = "TEST-DB-456")) is ParcelStoreResult.Saved)
+
+        val result = database.clearAll()
+        assertTrue(result is ParcelStoreResult.Cleared)
+        assertEquals(2, (result as ParcelStoreResult.Cleared).deletedCount)
+        assertTrue(database.all().isEmpty())
+    }
+
+    @Test
+    fun clearAllOnEmptyDatabaseIsSafe() {
+        val result = database.clearAll()
+        assertTrue(result is ParcelStoreResult.Cleared)
+        assertEquals(0, (result as ParcelStoreResult.Cleared).deletedCount)
+        assertTrue(database.all().isEmpty())
+    }
+
+    @Test
     fun rejectsDuplicateOpenBarcodeIgnoringCase() {
         assertTrue(database.register(sample) is ParcelStoreResult.Saved)
         val duplicate = sample.copy(id = "db-test-2", barcode = "test-db-123")
