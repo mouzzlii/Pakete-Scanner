@@ -23,6 +23,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -45,7 +46,7 @@ internal fun ParcelShopSection() {
     var barcode by remember { mutableStateOf("") }
     var carrierId by remember { mutableStateOf(CarrierRegistry.all.firstOrNull()?.id.orEmpty()) }
     var carrierMenuExpanded by remember { mutableStateOf(false) }
-    var storageLocation by remember { mutableStateOf("") }
+    val storageLocations = remember { mutableStateMapOf<String, String>() }
     var isReturn by remember { mutableStateOf(false) }
     var feedback by remember { mutableStateOf("Lokale Demo-Verwaltung – Daten bleiben auf diesem Gerät.") }
 
@@ -63,7 +64,6 @@ internal fun ParcelShopSection() {
                 is ParcelStoreResult.Saved -> {
                     feedback = "Gespeichert: ${result.parcel.barcode}"
                     refresh()
-                    storageLocation = ""
                 }
                 is ParcelStoreResult.Rejected -> feedback = result.reason
             }
@@ -133,7 +133,8 @@ internal fun ParcelShopSection() {
             Spacer(Modifier.height(8.dp))
             Text(feedback, style = MaterialTheme.typography.bodySmall, color = Color(0xFF174D39))
             Spacer(Modifier.height(12.dp))
-            Text("OFFENE VORGÄNGE", fontWeight = FontWeight.Bold, color = Color(0xFF174D39))
+            val openCount = parcels.count { it.status != ParcelStatus.HANDED_OVER && it.status != ParcelStatus.RETURNED_TO_CARRIER }
+            Text("PAKETVORGÄNGE · $openCount offen · ${parcels.size - openCount} abgeschlossen", fontWeight = FontWeight.Bold, color = Color(0xFF174D39))
             if (parcels.isEmpty()) {
                 Text("Noch keine Pakete erfasst.", style = MaterialTheme.typography.bodySmall, color = Color.DarkGray)
             } else {
@@ -154,15 +155,18 @@ internal fun ParcelShopSection() {
                             when (parcel.status) {
                                 ParcelStatus.RECEIVED -> {
                                     OutlinedTextField(
-                                        value = storageLocation,
-                                        onValueChange = { storageLocation = it },
+                                        value = storageLocations[parcel.id].orEmpty(),
+                                        onValueChange = { storageLocations[parcel.id] = it },
                                         modifier = Modifier.fillMaxWidth(),
                                         label = { Text("Lagerplatz (z. B. Regal A-02)") },
                                         singleLine = true
                                     )
                                     Button(
-                                        onClick = { perform { database.updateStatus(parcel.id, ParcelStatus.STORED, System.currentTimeMillis(), storageLocation.trim()) } },
-                                        enabled = storageLocation.isNotBlank(),
+                                        onClick = {
+                                            val location = storageLocations[parcel.id].orEmpty().trim()
+                                            perform { database.updateStatus(parcel.id, ParcelStatus.STORED, System.currentTimeMillis(), location) }
+                                        },
+                                        enabled = !storageLocations[parcel.id].isNullOrBlank(),
                                         modifier = Modifier.fillMaxWidth()
                                     ) { Text("EINLAGERN") }
                                 }
