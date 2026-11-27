@@ -169,19 +169,13 @@ class MainActivity : ComponentActivity() {
 
         
 
-        fun forwardCode(raw: String) {
+        fun detectCode(raw: String) {
             scannedCode = raw.trim()
             val match = CarrierDetector.detect(scannedCode)
             if (match != null) {
                 selected = match
                 detected = true
-                status = "Anbieter erkannt: $match. Öffne den offiziellen Geschäftskunden-Einstieg im Browser."
-                try {
-                    val portal = CarrierPortals.all.first { it.name == match }
-                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(portal.url)))
-                } catch (_: ActivityNotFoundException) {
-                    status = "Anbieter erkannt, aber kein Browser zum Öffnen gefunden."
-                }
+                status = "Anbieter-Kandidat erkannt: $match. Prüfe die Auswahl und öffne das Portal erst mit der Portal-Schaltfläche."
             } else {
                 selected = ""
                 detected = false
@@ -193,10 +187,15 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        fun forwardCode(raw: String) {
+            detectCode(raw)
+            if (selected.isNotBlank()) openPortal()
+        }
+
         fun scan() {
             GmsBarcodeScanning.getClient(this@MainActivity)
                 .startScan()
-                .addOnSuccessListener { result -> forwardCode(result.rawValue.orEmpty()) }
+                .addOnSuccessListener { result -> detectCode(result.rawValue.orEmpty()) }
                 .addOnFailureListener {
                     status = "Scan nicht möglich. Code kann auch über einen externen Scanner eingegeben werden."
                 }
