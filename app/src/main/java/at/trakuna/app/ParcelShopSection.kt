@@ -48,7 +48,7 @@ internal fun ParcelShopSection() {
     var carrierMenuExpanded by remember { mutableStateOf(false) }
     val storageLocations = remember { mutableStateMapOf<String, String>() }
     var isReturn by remember { mutableStateOf(false) }
-    var feedback by remember { mutableStateOf("Lokale Demo-Verwaltung – Daten bleiben auf diesem Gerät.") }
+    var feedback by remember { mutableStateOf("NUR TESTBETRIEB – ausschließlich synthetische Testcodes verwenden.") }
 
     suspend fun refresh() {
         parcels = withContext(Dispatchers.IO) { database.all() }
@@ -78,6 +78,12 @@ internal fun ParcelShopSection() {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
             Text("PAKETVERWALTUNG", color = Color(0xFF174D39), fontWeight = FontWeight.Bold)
             Text("Lokale Demo · keine Carrier-API · keine Cloud-Synchronisierung", style = MaterialTheme.typography.bodySmall, color = Color.DarkGray)
+            Text(
+                "NUR TESTBETRIEB: ausschließlich synthetische Testcodes verwenden. Keine echten Kundensendungen, Namen, Adressen oder Abholcodes speichern. Barcodes sind lokal derzeit nicht verschlüsselt.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF9A3412),
+                fontWeight = FontWeight.SemiBold
+            )
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(
                 value = barcode,
