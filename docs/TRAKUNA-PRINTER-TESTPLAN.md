@@ -63,3 +63,11 @@ Abnahmekriterien:
 - Ein erfolgreicher Build ist kein Laufzeit-, Kamera-, Browser-, Netzwerk- oder Bluetooth-Hardwaretest.
 
 Die Matrix bleibt die Abnahmegrundlage für die weiteren Integrationsstufen.
+
+
+### UI- und Thread-Sicherheit (27.11.2026)
+
+- Drucker-Verbindungsoberfläche in `PrinterConnectionSection.kt` ausgelagert; die Activity übergibt Status und Aktionen über Callbacks.
+- Bluetooth-SPP-Verbindungsversuche laufen über den Coroutine-IO-Dispatcher statt über einen selbst gestarteten Thread. Es werden weiterhin keine Nutzdaten oder Druckdaten gesendet; der Socket wird im `finally`-Block geschlossen.
+- Bluetooth-Gerätenamen werden in der Druckeroberfläche nicht mehr direkt abgefragt, um einen unnötigen Zugriff auf die zur Laufzeit geschützte Geräteinformation zu vermeiden.
+- Diese Codeänderungen sind erst nach erfolgreichem CI-Lauf als Build-validiert zu betrachten; ein realer Bluetooth-Druckertest bleibt erforderlich.
