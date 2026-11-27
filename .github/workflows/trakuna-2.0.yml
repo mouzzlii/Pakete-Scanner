@@ -214,8 +214,16 @@ jobs:
                   val bluetoothPermissionLauncher = rememberLauncherForActivityResult(
                       ActivityResultContracts.RequestPermission()
                   ) { granted ->
-                      if (granted) loadPairedPrinters()
-                      else printerStatus = "Bluetooth-Zugriff wurde nicht freigegeben."
+                      if (granted) {
+                          try {
+                              val adapter = (getSystemService(BLUETOOTH_SERVICE) as android.bluetooth.BluetoothManager).adapter
+                              pairedPrinters = adapter?.bondedDevices?.toList()?.sortedBy { it.name ?: it.address } ?: emptyList()
+                              printerStatus = if (pairedPrinters.isEmpty()) "Keine gekoppelten Bluetooth-Geräte gefunden. Kopple den Drucker zuerst in den Android-Einstellungen."
+                                  else "Gekoppelte Geräte geladen. Wähle einen Drucker für den SPP-Verbindungstest."
+                          } catch (_: SecurityException) {
+                              printerStatus = "Bluetooth-Berechtigung fehlt."
+                          }
+                      } else printerStatus = "Bluetooth-Zugriff wurde nicht freigegeben."
                   }
 
                   fun loadPairedPrinters() {
