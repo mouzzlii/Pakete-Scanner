@@ -173,7 +173,7 @@ jobs:
 
           private val portals = listOf(
               CarrierPortal("DPD Business", "https://business.dpd.at/"),
-              CarrierPortal("GLS / YourGLS", "https://gls-group.com/AT/de/"),
+              CarrierPortal("GLS / YourGLS", "https://gls-group.com/authenticate?allowed_locales=en-AT%2Cde-AT&locale=de-AT"),
               CarrierPortal("Hermes Geschäftskundenbereich", "https://www.myhermes.at/geschaeftskunden/uebersicht/"),
               CarrierPortal("UPS Business / CampusShip", "https://www.ups.com/at/de/business-solutions/business-shipping-tools/ups-campusship"),
               CarrierPortal("DHL Geschäftskunden", "https://www.dhl.com/at-de/home/login.html"),
