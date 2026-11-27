@@ -56,6 +56,7 @@ Abnahmekriterien:
 
 - Die Schaltfläche heißt **„ANBIETER ERKENNEN & PORTAL ÖFFNEN“**. Bei einem erkannten Muster wird nur das offizielle Portal im externen Browser geöffnet; der Barcode wird nicht automatisch in das Portal eingefügt oder an einen TRAKUNA-Server übertragen.
 - Ein externer HID-/Tastatur-Scanner gibt Zeichen in das Eingabefeld ein. Die App erkennt bzw. öffnet den Anbieter erst nach ausdrücklichem Antippen der Schaltfläche.
+- Der 13-stellige `872…`-Beispielcode wird wegen der möglichen EAN-13-Mehrdeutigkeit nicht automatisch GLS zugeordnet; GLS muss in diesem Fall manuell gewählt werden.
 - Ein erfolgreicher Build ist kein Laufzeit-, Kamera-, Browser-, Netzwerk- oder Bluetooth-Hardwaretest.
 
 Die Matrix bleibt die Abnahmegrundlage für die weiteren Integrationsstufen.
