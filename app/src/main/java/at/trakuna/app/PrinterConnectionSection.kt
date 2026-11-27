@@ -19,6 +19,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+private val PrinterForest = Color(0xFF174D39)
+
 /**
  * Printer connection UI only. Connection logic and permission handling stay
  * in MainActivity; this composable never sends print data.
@@ -37,7 +39,7 @@ internal fun PrinterConnectionSection(
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(Modifier.fillMaxWidth().padding(14.dp)) {
-            Text("DRUCKER VERBINDEN", fontWeight = FontWeight.Bold, color = Forest)
+            Text("DRUCKER VERBINDEN", fontWeight = FontWeight.Bold, color = PrinterForest)
             Text(
                 "Erste Teststufe: Verbindung prüfen – keine Druckdaten werden gesendet.",
                 fontSize = 12.sp,
@@ -82,7 +84,7 @@ internal fun PrinterConnectionSection(
                 }
             }
             Spacer(Modifier.height(8.dp))
-            Text("Druckerstatus", fontWeight = FontWeight.SemiBold, color = Forest)
+            Text("Druckerstatus", fontWeight = FontWeight.SemiBold, color = PrinterForest)
             Text(status, fontSize = 12.sp)
         }
     }

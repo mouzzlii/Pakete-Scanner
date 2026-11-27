@@ -276,7 +276,7 @@ class MainActivity : ComponentActivity() {
                         status = printerStatus,
                         pairedPrinters = pairedPrinters,
                         onHostChange = { printerHost = it },
-                        onPortChange = { printerPort = it },
+                        onPortChange = { printerPort = it.filter(Char::isDigit).take(5) },
                         onTestNetwork = { testWifiEndpoint() },
                         onLoadBluetooth = { loadPairedPrinters() },
                         onTestBluetooth = { device -> testBluetoothSpp(device) }
