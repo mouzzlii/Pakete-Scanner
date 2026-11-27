@@ -28,10 +28,11 @@ Die Portaladressen können sich ändern. Vor einem produktiven Einsatz müssen s
 Die aktuelle Implementierung nutzt diese begrenzten Kandidaten:
 
 - Hermes: `104` gefolgt von 19 Ziffern.
-- GLS: `872` gefolgt von 10 Ziffern.
 - DPD: `P` gefolgt von 12 Ziffern.
 - UPS: `1Z` gefolgt von 16 alphanumerischen Zeichen.
 - Klar erkennbare Anbieterkennzeichnungen im eingegebenen Text können ebenfalls zugeordnet werden.
+
+Ein 13-stelliger Code mit dem Präfix `872` wird bewusst **nicht automatisch GLS zugeordnet**: Der bekannte Beispielcode `8721335813708` erfüllt zugleich die EAN-13-Prüfziffer. Er kann daher auch ein Produktbarcode sein. In diesem Fall muss GLS manuell ausgewählt werden.
 
 Diese Muster decken nicht alle nationalen und internationalen Sendungsnummern ab und sind kein Beweis für die tatsächliche Zugehörigkeit eines Codes zu einem Paketdienst. DHL und Österreichische Post werden nicht anhand allgemeiner Nummernformate automatisch zugeordnet. Bei Unsicherheit bitte manuell auswählen.
 
