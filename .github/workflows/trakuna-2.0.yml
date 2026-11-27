@@ -203,26 +203,16 @@ jobs:
                           value.contains("UPS") -> "UPS Business / CampusShip"
                           value.contains("DHL") -> "DHL Geschäftskunden"
                           value.contains("POST") -> "Österreichische Post / ELLA"
-                          // Hermes: bekannte H+19- und beobachtete 104+19-Formate.
-                          Regex("""^H\d{19}$""").matches(compact) -> "Hermes Geschäftskundenbereich"
+                          // Hermes: nur das vom Nutzer bestätigte 104+19-Format automatisch zuordnen.
                           Regex("""^104\d{19}$""").matches(compact) -> "Hermes Geschäftskundenbereich"
-                          // GLS: bekanntes Z-Format und der vom Nutzer bestätigte 872+10-Code.
-                          Regex("""^Z[A-Z0-9]{7}$""").matches(compact) -> "GLS / YourGLS"
+                          // GLS: nur das vom Nutzer bestätigte 872+10-Format automatisch zuordnen.
                           Regex("""^872\d{10}$""").matches(compact) -> "GLS / YourGLS"
-                          // DPD Österreich: PIN-Beispiel P + 12 Ziffern.
-                          // 14 Ziffern sind bei DPD und älteren Hermes-Labels möglich:
-                          // deshalb nur manuell auswählen, niemals automatisch raten.
+                          // DPD Österreich: offizielles PIN-Beispiel P + 12 Ziffern.
                           Regex("""^P\d{12}$""").matches(compact) -> "DPD Business"
-                          // UPS: offiziell dokumentierte Standardformate.
+                          // UPS: eindeutiges 1Z-Format. Andere Nummernlängen können kollidieren.
                           Regex("""^1Z[A-Z0-9]{16}$""").matches(compact) -> "UPS Business / CampusShip"
-                          Regex("""^T\d{10}$""").matches(compact) -> "UPS Business / CampusShip"
-                          Regex("""^\d{12}$""").matches(compact) -> "UPS Business / CampusShip"
-                          Regex("""^\d{9}$""").matches(compact) -> "UPS Business / CampusShip"
-                          // Österreichische Post: veröffentlichte Beispiele 101... (22 Ziffern)
-                          // und internationales S10-Format (2 Buchstaben + 9 Ziffern + 2 Buchstaben).
-                          Regex("""^101\d{19}$""").matches(compact) -> "Österreichische Post / ELLA"
-                          Regex("""^[A-Z]{2}\d{9}[A-Z]{2}$""").matches(compact) -> "Österreichische Post / ELLA"
-                          // DHL: viele überlappende Formate; ohne eindeutiges Kennzeichen manuell auswählen.
+                          // DHL, Österreichische Post und nicht eindeutig zuordenbare Formate:
+                          // manuelle Anbieterauswahl statt unsicherer automatischer Vermutung.
                           else -> null
                       }
                   }
