@@ -10,7 +10,7 @@ on:
       - fix/trakuna-scroll-layout
   pull_request:
     branches:
-      - fix/trakuna-scroll-layout
+      - main
   workflow_dispatch:
 
 permissions:
