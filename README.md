@@ -5,7 +5,8 @@ TRAKUNA ist in dieser Teststufe ein schlanker Barcode-Scanner und Weiterleitungs
 ## Ablauf
 
 1. Barcode mit dem Smartphone-Kamera-Scanner erfassen oder über einen externen HID-/Keyboard-Wedge-Scanner in das Codefeld eingeben.
-2. **„ANBIETER ERKENNEN & PORTAL ÖFFNEN“** antippen.
+2. TRAKUNA zeigt einen möglichen Anbieter an; der Kamera-Scan öffnet noch kein Portal.
+3. **„ANBIETER ERKENNEN & PORTAL ÖFFNEN“** antippen, um den erkannten Anbieter-Einstieg ausdrücklich zu öffnen.
 3. TRAKUNA ordnet nur eindeutig unterstützte Kennzeichen bzw. Barcode-Muster zu. Bei unbekannten oder mehrdeutigen Codes erfolgt keine automatische Zuordnung.
 4. Bei eindeutiger Erkennung öffnet TRAKUNA den hinterlegten Anbieter-Einstieg im externen Android-Browser. Andernfalls kann der Anbieter manuell ausgewählt werden.
 5. Anmeldung und alle weiteren Schritte erfolgen ausschließlich beim jeweiligen Anbieter.
@@ -40,7 +41,7 @@ Diese Muster decken nicht alle nationalen und internationalen Sendungsnummern ab
 
 Vor dem TCP-Verbindungsversuch prüft TRAKUNA die manuelle Host-/Port-Eingabe. Unterstützt werden Hostnamen sowie IPv4- und IPv6-Adressen. URL-Schemata, Pfade, ungültige Zeichen und Ports außerhalb von 1 bis 65535 werden abgewiesen. Die Prüfung selbst stellt noch keine Verbindung her.
 
-Die Netzwerkprüfung läuft außerhalb des UI-Threads und verwendet ein Verbindungszeitlimit von drei Sekunden. Ein erfolgreicher TCP-Verbindungsaufbau bestätigt ausschließlich die Erreichbarkeit dieses Endpunkts – nicht IPP, IPPS oder die Druckbereitschaft des Geräts.
+Die Netzwerkprüfung läuft außerhalb des UI-Threads und verwendet ein Verbindungszeitlimit von drei Sekunden. Aus Sicherheitsgründen werden ausschließlich lokale/private Zieladressen zugelassen; öffentliche IP-Adressen und Hostnamen, die auf öffentliche Adressen zeigen, werden abgewiesen. Die bereits geprüfte IP-Adresse wird direkt verbunden, damit keine zweite DNS-Auflösung dazwischenfunkt. Ein erfolgreicher TCP-Verbindungsaufbau bestätigt ausschließlich die Erreichbarkeit dieses Endpunkts – nicht IPP, IPPS oder die Druckbereitschaft des Geräts.
 
 ## Drucker – aktueller Umfang
 
