@@ -4,6 +4,7 @@ import android.Manifest
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -40,8 +41,11 @@ import java.util.UUID
 private val Forest = Color(0xFF174D39)
 private val Pale = Color(0xFFF1F5F2)
 
-private suspend fun connectBluetoothSpp(device: BluetoothDevice): String =
-    suspendCancellableCoroutine { continuation ->
+private suspend fun connectBluetoothSpp(context: Context, device: BluetoothDevice): String {
+    if (context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+        return "Bluetooth-Zugriff nicht freigegeben. Bitte Berechtigung erteilen und erneut versuchen."
+    }
+    return suspendCancellableCoroutine { continuation ->
         val socket = try {
             device.createRfcommSocketToServiceRecord(
                 UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
@@ -154,7 +158,7 @@ class MainActivity : ComponentActivity() {
             coroutineScope.launch {
                 val result = try {
                     withTimeoutOrNull(12_000) {
-                        connectBluetoothSpp(device)
+                        connectBluetoothSpp(this@MainActivity, device)
                     } ?: "SPP-Verbindung nach 12 Sekunden abgebrochen. Gerät und Profil prüfen."
                 } catch (_: SecurityException) {
                     "Bluetooth-Zugriff verweigert. Berechtigung erneut prüfen."
