@@ -47,8 +47,15 @@ Abnahmekriterien:
 
 - **Im Android-Testbuild enthalten:** manuelle WLAN/LAN-Host-/Port-Prüfung per TCP mit Zeitlimit; die Anzeige weist ausdrücklich darauf hin, dass Erreichbarkeit keine Drucker- oder IPP-Kompatibilität bestätigt.
 - **Im Android-Testbuild enthalten:** Anzeige bereits gekoppelter Bluetooth-Geräte und ausdrücklicher Verbindungstest über Bluetooth Classic SPP/RFCOMM mit Standard-SPP-UUID; es werden keine Druckdaten gesendet.
-- **Build:** GitHub Actions erfolgreich, Run `45996186707`, Commit `1cb7402e148a54692196b85fe5fb1644fd806596`.
+- **Build:** GitHub Actions erfolgreich, Run `45999582382`, Commit `57fe74ae8f714a9e5f835142eee62d7484c315df` (enthält die Klarstellung der Bedienbeschriftungen; der anschließende Commit aktualisiert nur diese Dokumentation).
 - **Noch nicht implementiert:** IPP/IPPS-Aushandlung und Geräteattribute, mDNS/DNS-SD-Suche, LPR, RAW-TCP-Geräteprofile, BLE/GATT sowie Druckformatadapter.
 - **Hardwaretests:** nicht durchgeführt. Der erfolgreiche CI-Build bestätigt nur die Kompilierung und Artefakterstellung, nicht die Funktion mit einem realen Druckermodell.
+
+
+## Zusätzliche Grenzen der aktuellen App
+
+- Die Schaltfläche heißt **„ANBIETER ERKENNEN & PORTAL ÖFFNEN“**. Bei einem erkannten Muster wird nur das offizielle Portal im externen Browser geöffnet; der Barcode wird nicht automatisch in das Portal eingefügt oder an einen TRAKUNA-Server übertragen.
+- Ein externer HID-/Tastatur-Scanner gibt Zeichen in das Eingabefeld ein. Die App erkennt bzw. öffnet den Anbieter erst nach ausdrücklichem Antippen der Schaltfläche.
+- Ein erfolgreicher Build ist kein Laufzeit-, Kamera-, Browser-, Netzwerk- oder Bluetooth-Hardwaretest.
 
 Die Matrix bleibt die Abnahmegrundlage für die weiteren Integrationsstufen.
