@@ -88,6 +88,14 @@ internal class ParcelDatabase(context: Context) :
         }
     }
 
+    /** Deletes only this device's local demo records; callers must request explicit confirmation. */
+    @Synchronized
+    fun clearAll(): ParcelStoreResult = try {
+        ParcelStoreResult.Cleared(writableDatabase.delete("parcels", null, null))
+    } catch (_: SQLiteException) {
+        ParcelStoreResult.Rejected("Die lokalen Demodaten konnten nicht gelöscht werden.")
+    }
+
     @Synchronized
     fun updateStatus(id: String, next: ParcelStatus, now: Long, location: String? = null): ParcelStoreResult {
         val current = all().firstOrNull { it.id == id }
