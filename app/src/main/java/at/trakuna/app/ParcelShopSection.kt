@@ -50,6 +50,7 @@ internal fun ParcelShopSection() {
     val storageLocations = remember { mutableStateMapOf<String, String>() }
     var isReturn by remember { mutableStateOf(false) }
     var feedback by remember { mutableStateOf("NUR TESTBETRIEB – ausschließlich synthetische Testcodes verwenden.") }
+    var showClearConfirmation by remember { mutableStateOf(false) }
 
     suspend fun refresh() {
         parcels = withContext(Dispatchers.IO) { database.all() }
