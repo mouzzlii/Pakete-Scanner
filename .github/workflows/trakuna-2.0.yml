@@ -203,9 +203,9 @@ jobs:
                           value.contains("UPS") -> "UPS Business / CampusShip"
                           value.contains("DHL") -> "DHL Geschäftskunden"
                           value.contains("POST") -> "Österreichische Post / ELLA"
-                          Regex("""^H\d{19}$""").matches(compact) -> "Hermes Geschäftskunden"
+                          Regex("""^H\d{19}$""").matches(compact) -> "Hermes Geschäftskundenbereich"
                           Regex("""^Z[A-Z0-9]{7}$""").matches(compact) -> "GLS / YourGLS"
-                          Regex("""^\d{14}$""").matches(compact) -> "Hermes Geschäftskunden"
+                          Regex("""^\d{14}$""").matches(compact) -> "Hermes Geschäftskundenbereich"
                           else -> null
                       }
                   }
