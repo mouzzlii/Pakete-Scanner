@@ -172,11 +172,11 @@ jobs:
           private data class CarrierPortal(val name: String, val url: String)
 
           private val portals = listOf(
-              CarrierPortal("DPD Business", "https://www.dpd.com/at/en/sending-parcels/international-shipping-2/business-customers/"),
+              CarrierPortal("DPD Business", "https://business.dpd.at/"),
               CarrierPortal("GLS / YourGLS", "https://gls-group.com/AT/de/password-reset"),
               CarrierPortal("Hermes Geschäftskunden", "https://www.myhermes.at/geschaeftskunden/uebersicht/"),
               CarrierPortal("UPS Business / CampusShip", "https://www.ups.com/at/de/business-solutions/business-shipping-tools/ups-campusship"),
-              CarrierPortal("DHL Geschäftskunden", "https://www.dhl.com/at-en/home/login.html"),
+              CarrierPortal("DHL Geschäftskunden", "https://www.dhl.com/at-de/home/login.html"),
               CarrierPortal("Österreichische Post / ELLA", "https://ella.post.at/")
           )
 
