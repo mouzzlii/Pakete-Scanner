@@ -174,7 +174,7 @@ jobs:
           private val portals = listOf(
               CarrierPortal("DPD Business", "https://business.dpd.at/"),
               CarrierPortal("GLS / YourGLS", "https://gls-group.com/AT/de/password-reset"),
-              CarrierPortal("Hermes Geschäftskunden", "https://www.myhermes.at/geschaeftskunden/uebersicht/"),
+              CarrierPortal("Hermes Geschäftskundenbereich", "https://www.myhermes.at/geschaeftskunden/uebersicht/"),
               CarrierPortal("UPS Business / CampusShip", "https://www.ups.com/at/de/business-solutions/business-shipping-tools/ups-campusship"),
               CarrierPortal("DHL Geschäftskunden", "https://www.dhl.com/at-de/home/login.html"),
               CarrierPortal("Österreichische Post / ELLA", "https://ella.post.at/")
@@ -197,7 +197,7 @@ jobs:
                       val value = raw.trim().uppercase(Locale.ROOT)
                       val compact = value.replace(Regex("""[\s-]"""), "")
                       return when {
-                          value.contains("HERMES") -> "Hermes Geschäftskunden"
+                          value.contains("HERMES") -> "Hermes Geschäftskundenbereich"
                           value.contains("GLS") -> "GLS / YourGLS"
                           value.contains("DPD") -> "DPD Business"
                           value.contains("UPS") -> "UPS Business / CampusShip"
@@ -205,38 +205,37 @@ jobs:
                           value.contains("POST") -> "Österreichische Post / ELLA"
                           Regex("""^H\d{19}$""").matches(compact) -> "Hermes Geschäftskunden"
                           Regex("""^Z[A-Z0-9]{7}$""").matches(compact) -> "GLS / YourGLS"
-                          // 11 Ziffern sind nur ein GLS-Kandidat, kein exklusiver Nachweis.
-                          Regex("""^\d{11}$""").matches(compact) -> "GLS / YourGLS"
                           Regex("""^\d{14}$""").matches(compact) -> "Hermes Geschäftskunden"
                           else -> null
+                      }
+                  }
+
+                  fun forwardCode(raw: String) {
+                      scannedCode = raw.trim()
+                      val match = detectCarrier(scannedCode)
+                      if (match != null) {
+                          selected = match
+                          detected = true
+                          status = "Anbieter erkannt: $match. Öffne den offiziellen Geschäftskunden-Einstieg im Browser."
+                          try {
+                              val portal = portals.first { it.name == match }
+                              startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(portal.url)))
+                          } catch (_: ActivityNotFoundException) {
+                              status = "Anbieter erkannt, aber kein Browser zum Öffnen gefunden."
+                          }
+                      } else {
+                          selected = ""
+                          detected = false
+                          status = "Anbieter nicht eindeutig erkannt. Bitte Anbieter auswählen."
                       }
                   }
 
                   fun scan() {
                       GmsBarcodeScanning.getClient(this@MainActivity)
                           .startScan()
-                          .addOnSuccessListener { result ->
-                              val raw = result.rawValue.orEmpty()
-                              scannedCode = raw
-                              val match = detectCarrier(raw)
-                              if (match != null) {
-                                  selected = match
-                                  detected = true
-                                  status = "Anbieter erkannt: $match. Öffne den offiziellen Geschäftskunden-Einstieg im Browser."
-                                  try {
-                                      val portal = portals.first { it.name == match }
-                                      startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(portal.url)))
-                                  } catch (_: ActivityNotFoundException) {
-                                      status = "Anbieter erkannt, aber kein Browser zum Öffnen gefunden."
-                                  }
-                              } else {
-                                  selected = ""
-                                  detected = false
-                                  status = "Anbieter nicht eindeutig erkannt. Bitte manuell auswählen."
-                              }
-                          }
+                          .addOnSuccessListener { result -> forwardCode(result.rawValue.orEmpty()) }
                           .addOnFailureListener {
-                              status = "Scan nicht möglich. Bitte erneut versuchen oder Anbieter manuell auswählen."
+                              status = "Scan nicht möglich. Code kann auch über einen externen Scanner eingegeben werden."
                           }
                   }
 
@@ -282,6 +281,20 @@ jobs:
                                   modifier = Modifier.fillMaxWidth().height(58.dp),
                                   shape = RoundedCornerShape(14.dp)
                               ) { Text("▦  PAKET SCANNEN", fontSize = 17.sp, fontWeight = FontWeight.Bold) }
+                              Spacer(Modifier.height(10.dp))
+                              OutlinedTextField(
+                                  value = scannedCode,
+                                  onValueChange = { scannedCode = it },
+                                  label = { Text("Barcode / Zebra-Scanner") },
+                                  placeholder = { Text("Code scannen oder eingeben") },
+                                  modifier = Modifier.fillMaxWidth(),
+                                  singleLine = true
+                              )
+                              OutlinedButton(
+                                  onClick = { forwardCode(scannedCode) },
+                                  enabled = scannedCode.isNotBlank(),
+                                  modifier = Modifier.fillMaxWidth()
+                              ) { Text("CODE WEITERLEITEN") }
                               if (scannedCode.isNotBlank()) {
                                   Spacer(Modifier.height(10.dp))
                                   Text("Gescannter Code: $scannedCode", fontSize = 12.sp, color = Color.DarkGray)
