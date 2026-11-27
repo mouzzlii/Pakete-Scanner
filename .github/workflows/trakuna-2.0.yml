@@ -195,7 +195,7 @@ jobs:
 
                   fun detectCarrier(raw: String): String? {
                       val value = raw.trim().uppercase(Locale.ROOT)
-                      val compact = value.replace(Regex("""[\\s-]"""), "")
+                      val compact = value.replace(Regex("""[\s-]"""), "")
                       return when {
                           value.contains("HERMES") -> "Hermes Geschäftskunden"
                           value.contains("GLS") -> "GLS / YourGLS"
@@ -203,9 +203,9 @@ jobs:
                           value.contains("UPS") -> "UPS Business / CampusShip"
                           value.contains("DHL") -> "DHL Geschäftskunden"
                           value.contains("POST") -> "Österreichische Post / ELLA"
-                          Regex("""^H\\d{19}$""").matches(compact) -> "Hermes Geschäftskunden"
+                          Regex("""^H\d{19}$""").matches(compact) -> "Hermes Geschäftskunden"
                           Regex("""^Z[A-Z0-9]{7}$""").matches(compact) -> "GLS / YourGLS"
-                          Regex("""^\\d{14}$""").matches(compact) -> "Hermes Geschäftskunden"
+                          Regex("""^\d{14}$""").matches(compact) -> "Hermes Geschäftskunden"
                           else -> null
                       }
                   }
