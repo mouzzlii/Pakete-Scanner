@@ -7,9 +7,9 @@ TRAKUNA ist in dieser Teststufe ein schlanker Barcode-Scanner und Weiterleitungs
 1. Barcode mit dem Smartphone-Kamera-Scanner erfassen oder über einen externen HID-/Keyboard-Wedge-Scanner in das Codefeld eingeben.
 2. TRAKUNA zeigt einen möglichen Anbieter an; der Kamera-Scan öffnet noch kein Portal.
 3. **„ANBIETER ERKENNEN & PORTAL ÖFFNEN“** antippen, um den erkannten Anbieter-Einstieg ausdrücklich zu öffnen.
-3. TRAKUNA ordnet nur eindeutig unterstützte Kennzeichen bzw. Barcode-Muster zu. Bei unbekannten oder mehrdeutigen Codes erfolgt keine automatische Zuordnung.
-4. Bei eindeutiger Erkennung öffnet TRAKUNA den hinterlegten Anbieter-Einstieg im externen Android-Browser. Andernfalls kann der Anbieter manuell ausgewählt werden.
-5. Anmeldung und alle weiteren Schritte erfolgen ausschließlich beim jeweiligen Anbieter.
+4. TRAKUNA ordnet nur eindeutig unterstützte Kennzeichen bzw. Barcode-Muster zu. Bei unbekannten oder mehrdeutigen Codes erfolgt keine automatische Zuordnung.
+5. Bei eindeutiger Erkennung öffnet TRAKUNA den hinterlegten Anbieter-Einstieg im externen Android-Browser. Andernfalls kann der Anbieter manuell ausgewählt werden.
+6. Anmeldung und alle weiteren Schritte erfolgen ausschließlich beim jeweiligen Anbieter.
 
 **Wichtig:** TRAKUNA fügt den Barcode nicht automatisch in das Anbieterportal ein und überträgt ihn nicht an einen TRAKUNA-Server. Der Code bleibt in der App sichtbar.
 
@@ -77,7 +77,8 @@ GitHub Actions führt diese drei Schritte ebenfalls getrennt aus und veröffentl
 ## Teststatus
 
 - GitHub Actions Debug-APK: Build erfolgreich für den zuletzt dokumentierten Workflow-Lauf; siehe [GitHub Actions](https://github.com/mouzzlii/Pakete-Scanner/actions/workflows/trakuna-2.0.yml).
-- Android-Gerätetests, Kamera-Scan auf realer Hardware, HID-Scanner- und Drucker-Hardwaretests müssen separat durchgeführt und dokumentiert werden.
+- Der Nutzer hat am 27.11.2026 einen realen Android-Gerätetest im Paketshop durchgeführt. Die konkreten Beobachtungen sind im derzeit zugänglichen Projektprotokoll nicht vollständig erfasst; daraus wird kein pauschales „bestanden“ abgeleitet.
+- Weitere Kamera-/HID-Tests und konkrete Drucker-Hardwaretests müssen separat dokumentiert werden.
 - Der CI-Build belegt nur Kompilierung und Artefakterstellung, nicht die Funktion auf einem konkreten Android-Gerät oder mit einem konkreten Druckermodell.
 - Für einen kleinen internen Test gibt es die [Mitarbeiter-Testanleitung](docs/TRAKUNA-SHOP-MITARBEITERTEST.md).
 
