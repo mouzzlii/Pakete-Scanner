@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import java.util.Locale
+import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.UUID
