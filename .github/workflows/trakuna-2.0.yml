@@ -44,7 +44,11 @@ jobs:
         run: |
           # sdkmanager prompts for each license; provide explicit affirmative input
           # instead of EOF so CI cannot stall or fail on an unanswered prompt.
+          # GitHub's bash runner enables pipefail; temporarily disable it so
+          # the expected SIGPIPE from 'yes' cannot mask sdkmanager's exit code.
+          set +o pipefail
           yes | sdkmanager --licenses
+          set -o pipefail
           sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
           sdkmanager --list_installed | grep -F "platforms;android-35"
           sdkmanager --list_installed | grep -F "build-tools;35.0.0"
