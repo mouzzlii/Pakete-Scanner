@@ -9,6 +9,7 @@ import android.database.sqlite.SQLiteOpenHelper
 
 internal sealed interface ParcelStoreResult {
     data class Saved(val parcel: ParcelRecord) : ParcelStoreResult
+    data class Cleared(val deletedCount: Int) : ParcelStoreResult
     data class Rejected(val reason: String) : ParcelStoreResult
 }
 
