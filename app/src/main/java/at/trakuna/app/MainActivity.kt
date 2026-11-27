@@ -115,22 +115,24 @@ class MainActivity : ComponentActivity() {
                 bluetoothPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
                 return
             }
-            printerStatus = "Prüfe Bluetooth-SPP-Verbindung zu ${device.name ?: device.address} …"
-            Thread {
-                var socket: BluetoothSocket? = null
-                val result = try {
-                    socket = device.createRfcommSocketToServiceRecord(
-                        UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
-                    )
-                    socket.connect()
-                    "Bluetooth-SPP-Verbindung zu ${device.name ?: device.address} erfolgreich. Es wurden keine Druckdaten gesendet."
-                } catch (e: Exception) {
-                    "SPP-Verbindung fehlgeschlagen: ${e.message ?: "Profil nicht unterstützt oder Gerät nicht erreichbar"}"
-                } finally {
-                    try { socket?.close() } catch (_: Exception) {}
+            printerStatus = "Prüfe Bluetooth-SPP-Verbindung …"
+            coroutineScope.launch {
+                val result = withContext(Dispatchers.IO) {
+                    var socket: BluetoothSocket? = null
+                    try {
+                        socket = device.createRfcommSocketToServiceRecord(
+                            UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+                        )
+                        socket.connect()
+                        "Bluetooth-SPP-Verbindung erfolgreich. Es wurden keine Druckdaten gesendet."
+                    } catch (_: Exception) {
+                        "SPP-Verbindung fehlgeschlagen: Profil nicht unterstützt oder Gerät nicht erreichbar."
+                    } finally {
+                        try { socket?.close() } catch (_: Exception) {}
+                    }
                 }
-                runOnUiThread { printerStatus = result }
-            }.start()
+                printerStatus = result
+            }
         }
 
         
