@@ -20,16 +20,16 @@ jobs:
 
     steps:
       - name: Repository laden
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Java einrichten
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
 
       - name: Gradle einrichten
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '8.9'
 
@@ -470,7 +470,7 @@ jobs:
                                       OutlinedButton(onClick = { testWifiEndpoint() }, modifier = Modifier.fillMaxWidth()) {
                                           Text("NETZWERK-VERBINDUNG TESTEN")
                                       }
-                                      Divider()
+                                      HorizontalDivider()
                                       Text("Bluetooth Classic (SPP)", fontWeight = FontWeight.SemiBold)
                                       Text("Drucker zuerst in Android koppeln. BLE und proprietäre Profile benötigen später eigene Adapter.", fontSize = 11.sp, color = Color.DarkGray)
                                       OutlinedButton(onClick = { loadPairedPrinters() }, modifier = Modifier.fillMaxWidth()) {
@@ -514,7 +514,7 @@ jobs:
         run: gradle --no-daemon assembleDebug
 
       - name: APK bereitstellen
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: TRAKUNA-2.0-Android
           path: app/build/outputs/apk/debug/app-debug.apk
