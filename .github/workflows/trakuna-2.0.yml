@@ -367,7 +367,7 @@ jobs:
                           ) {
                               Spacer(Modifier.height(24.dp))
                               Text("TRAKUNA", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Forest)
-                              Text("ALLE PAKETDIENSTE. EIN BROWSER.", fontSize = 11.sp, color = Forest)
+                              Text("PAKETDIENSTE. EIN BROWSER.", fontSize = 11.sp, color = Forest)
                               Spacer(Modifier.height(28.dp))
                               Text("Paketdienst weiterleiten", fontSize = 22.sp, fontWeight = FontWeight.Bold)
                               Text(
@@ -393,10 +393,10 @@ jobs:
                                   onClick = { forwardCode(scannedCode) },
                                   enabled = scannedCode.isNotBlank(),
                                   modifier = Modifier.fillMaxWidth()
-                              ) { Text("CODE WEITERLEITEN") }
+                              ) { Text("ANBIETER ERKENNEN & PORTAL ÖFFNEN") }
                               if (scannedCode.isNotBlank()) {
                                   Spacer(Modifier.height(10.dp))
-                                  Text("Gescannter Code: $scannedCode", fontSize = 12.sp, color = Color.DarkGray)
+                                  Text("Erfasster Code: $scannedCode", fontSize = 12.sp, color = Color.DarkGray)
                               }
                               Spacer(Modifier.height(20.dp))
                               Text("ANBIETER", fontWeight = FontWeight.Bold, color = Forest)
@@ -485,7 +485,7 @@ jobs:
                               }
                               Spacer(Modifier.height(18.dp))
                               Text(
-                                  "BB-Modus: Anbieterportal im externen Browser. TRAKUNA speichert keine Passwörter und führt keine Buchung, Labelbestellung oder Druckaktion aus.",
+                                  "Browser-Modus: Anbieterportal im externen Browser. TRAKUNA speichert keine Passwörter und führt keine Buchung, Labelbestellung oder Druckaktion aus.",
                                   fontSize = 12.sp,
                                   color = Color.DarkGray
                               )
