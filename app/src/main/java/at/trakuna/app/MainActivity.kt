@@ -71,7 +71,7 @@ private suspend fun connectBluetoothSpp(context: Context, device: BluetoothDevic
             if (continuation.isActive) continuation.resume(result)
         }, "trakuna-bluetooth-spp").start()
     }
-
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -203,13 +203,13 @@ class MainActivity : ComponentActivity() {
         }
 
         fun openPortal() {
-            val portal = CarrierPortals.all.firstOrNull { it.name == selected }
-            if (portal == null) {
+            val portalUrl = CarrierPortals.all.firstOrNull { it.name == selected }?.url
+            if (portalUrl == null) {
                 status = "Bitte zuerst einen Paketdienst auswählen."
                 return
             }
             try {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(portal.url)))
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(portalUrl)))
                 status = "$selected wird im externen Android-Browser geöffnet. Anmeldung und Vorgänge erfolgen ausschließlich beim Anbieter."
             } catch (_: ActivityNotFoundException) {
                 status = "Kein Browser zum Öffnen des Anbieterportals gefunden."
