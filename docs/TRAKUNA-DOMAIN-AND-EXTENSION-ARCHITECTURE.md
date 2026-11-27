@@ -38,13 +38,19 @@ Jeder Anbieter implementiert `CarrierAdapter` mit:
 
 `CarrierRegistry` ist die zentrale Registrierung. Neue Anbieter sollen als Adapter ergänzt werden; das neutrale Paketmodell muss dafür nicht verändert werden. Die derzeitigen sechs Einträge sind Portal-Einstiege, keine API-Integrationen. Barcode-Erkennung bleibt vorsichtig und ist kein Identitätsnachweis für eine Sendung.
 
+## Zusätzlich implementiert: lokale Demo-Verwaltung
+- `ParcelDatabase` speichert Paketvorgänge lokal in einer SQLite-Datenbank auf dem Android-Gerät.
+- Ein eindeutiger Datenbankindex verhindert doppelte offene Barcodes auch bei parallelen Schreibversuchen.
+- `ParcelShopSection` bietet eine einfache Oberfläche zur Paket-/Retourenannahme, Auswahl eines registrierten Paketdienstes, Eingabe eines Lagerplatzes und Statusfortschaltung bis zur Übergabe.
+- Die UI kennzeichnet sich ausdrücklich als lokale Demo ohne Cloud-Synchronisierung und ohne Carrier-API.
+- Die Datenbank speichert keine Empfängernamen, Anschriften, Telefonnummern oder Abhol-PINs.
+
 ## Weitere Ausbaustufen
-1. Persistenzschicht mit Migrationen, Integritätsschutz und explizitem Demo-Modus.
-2. Paketannahme- und Lagerplatz-UI mit nachvollziehbaren Statusaktionen.
-3. Ausgabeprozess mit geeigneter, datensparsamer Berechtigungsprüfung; keine selbst erfundenen Abhol-PIN-Sicherheitsversprechen.
-4. Carrier-spezifische API-Adapter nur nach Prüfung offizieller Dokumentation, Vertrags-/Zugriffsvoraussetzungen und Testumgebung.
-5. Druckeradapter getrennt nach Transport, Protokoll und Druckformat; Druckfunktion erst nach Modelltests.
-6. Auditierbare Shop-Rollen, Rechte, Fehlerbehandlung, Backup-/Wiederherstellungs- und Löschkonzept vor Produktivbetrieb.
+1. Persistenztests auf Android-Instrumentierungsebene, Datenbankmigrationen und dokumentiertes Backup-/Löschverhalten.
+2. Ausgabeprozess mit geeigneter, datensparsamer Berechtigungsprüfung; keine selbst erfundenen Abhol-PIN-Sicherheitsversprechen.
+3. Carrier-spezifische API-Adapter nur nach Prüfung offizieller Dokumentation, Vertrags-/Zugriffsvoraussetzungen und Testumgebung.
+4. Druckeradapter getrennt nach Transport, Protokoll und Druckformat; Druckfunktion erst nach Modelltests.
+5. Auditierbare Shop-Rollen, Rechte, Fehlerbehandlung, Wiederherstellungs- und Löschkonzept vor Produktivbetrieb.
 
 ## Testgrenzen
 Unit-Tests prüfen die reine Status- und Validierungslogik. Sie beweisen weder Persistenz noch Android-Geräteverhalten, Carrier-API-Zugriff, Etikettendruck oder Produktivfähigkeit. Jede dieser Ebenen benötigt eigene Tests und eine dokumentierte Freigabe.
