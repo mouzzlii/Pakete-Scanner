@@ -197,7 +197,8 @@ jobs:
                   var formType by remember { mutableStateOf("Annahme") }
                   var showForm by remember { mutableStateOf(false) }
                   var code by remember { mutableStateOf("") }
-                  var carrier by remember { mutableStateOf("Unbekannt") }
+                  var carrier by remember { mutableStateOf("Bitte auswählen") }
+                  var carrierMenuExpanded by remember { mutableStateOf(false) }
                   var customer by remember { mutableStateOf("") }
                   var note by remember { mutableStateOf("") }
                   var message by remember { mutableStateOf("") }
@@ -210,7 +211,8 @@ jobs:
                   fun openForm(type: String, scanned: String = "") {
                       formType = type
                       code = scanned
-                      carrier = "Unbekannt"
+                      carrier = "Bitte auswählen"
+                      carrierMenuExpanded = false
                       customer = ""
                       note = ""
                       message = ""
@@ -240,6 +242,11 @@ jobs:
                           persist()
                           message = "Abholung lokal dokumentiert."
                           showForm = false
+                          return
+                      }
+
+                      if (carrier == "Bitte auswählen" || carrier == "Unbekannt") {
+                          message = "Bitte zuerst den Paketdienst auswählen."
                           return
                       }
 
@@ -441,12 +448,14 @@ jobs:
                                               keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
                                           )
                                           if (formType != "Abholung") {
-                                              OutlinedTextField(
-                                                  value = carrier,
-                                                  onValueChange = { carrier = it },
-                                                  label = { Text("Paketdienst (z. B. Post, DHL, DPD, GLS, UPS)") },
-                                                  singleLine = true
-                                              )
+                                              Box {
+                                                  OutlinedButton(onClick = { carrierMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) { Text("Paketdienst: $carrier") }
+                                                  DropdownMenu(expanded = carrierMenuExpanded, onDismissRequest = { carrierMenuExpanded = false }) {
+                                                      listOf("Hermes", "GLS", "Österreichische Post", "DHL", "DPD", "UPS", "Sonstiger Dienst").forEach { option ->
+                                                          DropdownMenuItem(text = { Text(option) }, onClick = { carrier = option; carrierMenuExpanded = false })
+                                                      }
+                                                  }
+                                              }
                                               OutlinedTextField(
                                                   value = customer,
                                                   onValueChange = { customer = it },
