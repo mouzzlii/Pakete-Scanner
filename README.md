@@ -53,6 +53,20 @@ Diese Muster decken nicht alle nationalen und internationalen Sendungsnummern ab
 - Der externe HID-Scanner wird als Tastatureingabe unterstützt; es gibt keine native Zebra-SDK-Integration.
 - Kein Produktivbetrieb und keine Produktivfreigabe durch den erfolgreichen Build.
 
+## Android-Projekt lokal bauen
+
+Der Android-Quellcode liegt jetzt als normales Gradle-Projekt im Repository und wird nicht mehr bei jedem CI-Lauf aus einem Workflow-Heredoc erzeugt.
+
+Voraussetzungen: Android Studio (empfohlen), JDK 17 und Android SDK 35.
+
+- Repository in Android Studio öffnen.
+- Gradle-Synchronisierung abwarten.
+- Für lokale Tests: `gradle testDebugUnitTest`.
+- Für statische Android-Prüfungen: `gradle lintDebug`.
+- Für eine Debug-APK: `gradle assembleDebug`.
+
+GitHub Actions führt diese drei Schritte ebenfalls getrennt aus und veröffentlicht die Debug-APK als Build-Artefakt. Die Unit-Tests prüfen ausschließlich die lokale Erkennungslogik; sie ersetzen keine Kamera-, Browser-, Bluetooth-, Netzwerk- oder Gerätetests.
+
 ## Teststatus
 
 - GitHub Actions Debug-APK: Build erfolgreich für den zuletzt dokumentierten Workflow-Lauf; siehe [GitHub Actions](https://github.com/mouzzlii/Pakete-Scanner/actions/workflows/trakuna-2.0.yml).
