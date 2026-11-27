@@ -10,11 +10,10 @@ import java.net.InetAddress
  */
 internal object LocalNetworkAddressPolicy {
     fun isAllowed(address: InetAddress): Boolean {
-        if (address.isAnyLocalAddress ||
-            address.isLoopbackAddress ||
+        if (address.isAnyLocalAddress || address.isMulticastAddress) return false
+        if (address.isLoopbackAddress ||
             address.isLinkLocalAddress ||
-            address.isSiteLocalAddress ||
-            address.isMulticastAddress
+            address.isSiteLocalAddress
         ) return true
 
         val bytes = address.address
