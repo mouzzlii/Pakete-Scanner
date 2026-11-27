@@ -209,9 +209,9 @@ jobs:
                           // GLS: bekanntes Z-Format und der vom Nutzer bestätigte 872+10-Code.
                           Regex("""^Z[A-Z0-9]{7}$""").matches(compact) -> "GLS / YourGLS"
                           Regex("""^872\d{10}$""").matches(compact) -> "GLS / YourGLS"
-                          // DPD Österreich: 14-stellige Paketnummer; PIN-Beispiel P + 12 Ziffern.
-                          // Generische 14-stellige Nummern nicht mehr Hermes zuordnen.
-                          Regex("""^\d{14}$""").matches(compact) -> "DPD Business"
+                          // DPD Österreich: PIN-Beispiel P + 12 Ziffern.
+                          // 14 Ziffern sind bei DPD und älteren Hermes-Labels möglich:
+                          // deshalb nur manuell auswählen, niemals automatisch raten.
                           Regex("""^P\d{12}$""").matches(compact) -> "DPD Business"
                           // UPS: offiziell dokumentierte Standardformate.
                           Regex("""^1Z[A-Z0-9]{16}$""").matches(compact) -> "UPS Business / CampusShip"
