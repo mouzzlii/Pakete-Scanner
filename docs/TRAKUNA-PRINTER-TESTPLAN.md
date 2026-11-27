@@ -47,7 +47,7 @@ Abnahmekriterien:
 
 - **Im Android-Testbuild enthalten:** manuelle WLAN/LAN-Host-/Port-Prüfung per TCP mit Zeitlimit; die Anzeige weist ausdrücklich darauf hin, dass Erreichbarkeit keine Drucker- oder IPP-Kompatibilität bestätigt.
 - **Im Android-Testbuild enthalten:** Anzeige bereits gekoppelter Bluetooth-Geräte und ausdrücklicher Verbindungstest über Bluetooth Classic SPP/RFCOMM mit Standard-SPP-UUID; es werden keine Druckdaten gesendet.
-- **Build:** GitHub Actions erfolgreich, Run `45999582382`, Commit `57fe74ae8f714a9e5f835142eee62d7484c315df` (enthält die Klarstellung der Bedienbeschriftungen; der anschließende Commit aktualisiert nur diese Dokumentation).
+- **Build:** Den aktuellen Build-Status und das zugehörige Artefakt zeigt der [GitHub-Actions-Workflow](https://github.com/mouzzlii/Pakete-Scanner/actions/workflows/trakuna-2.0.yml). Ein erfolgreicher CI-Lauf bestätigt Kompilierung und Artefakterstellung, nicht die reale Gerätefunktion.
 - **Noch nicht implementiert:** IPP/IPPS-Aushandlung und Geräteattribute, mDNS/DNS-SD-Suche, LPR, RAW-TCP-Geräteprofile, BLE/GATT sowie Druckformatadapter.
 - **Hardwaretests:** nicht durchgeführt. Der erfolgreiche CI-Build bestätigt nur die Kompilierung und Artefakterstellung, nicht die Funktion mit einem realen Druckermodell.
 
