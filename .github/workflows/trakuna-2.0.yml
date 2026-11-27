@@ -203,14 +203,26 @@ jobs:
                           value.contains("UPS") -> "UPS Business / CampusShip"
                           value.contains("DHL") -> "DHL Geschäftskunden"
                           value.contains("POST") -> "Österreichische Post / ELLA"
+                          // Hermes: bekannte H+19- und beobachtete 104+19-Formate.
                           Regex("""^H\d{19}$""").matches(compact) -> "Hermes Geschäftskundenbereich"
-                          Regex("""^Z[A-Z0-9]{7}$""").matches(compact) -> "GLS / YourGLS"
-                          // Beobachtete österreichische Label-Barcodes aus realen Tests:
-                          // GLS: 13-stellig, beginnt mit 872. Hermes: 22-stellig, beginnt mit 104.
-                          // Heuristische Muster; bei Unsicherheit bleibt manuelle Auswahl verfügbar.
-                          Regex("""^872\d{10}$""").matches(compact) -> "GLS / YourGLS"
                           Regex("""^104\d{19}$""").matches(compact) -> "Hermes Geschäftskundenbereich"
-                          Regex("""^\d{14}$""").matches(compact) -> "Hermes Geschäftskundenbereich"
+                          // GLS: bekanntes Z-Format und der vom Nutzer bestätigte 872+10-Code.
+                          Regex("""^Z[A-Z0-9]{7}$""").matches(compact) -> "GLS / YourGLS"
+                          Regex("""^872\d{10}$""").matches(compact) -> "GLS / YourGLS"
+                          // DPD Österreich: 14-stellige Paketnummer; PIN-Beispiel P + 12 Ziffern.
+                          // Generische 14-stellige Nummern nicht mehr Hermes zuordnen.
+                          Regex("""^\d{14}$""").matches(compact) -> "DPD Business"
+                          Regex("""^P\d{12}$""").matches(compact) -> "DPD Business"
+                          // UPS: offiziell dokumentierte Standardformate.
+                          Regex("""^1Z[A-Z0-9]{16}$""").matches(compact) -> "UPS Business / CampusShip"
+                          Regex("""^T\d{10}$""").matches(compact) -> "UPS Business / CampusShip"
+                          Regex("""^\d{12}$""").matches(compact) -> "UPS Business / CampusShip"
+                          Regex("""^\d{9}$""").matches(compact) -> "UPS Business / CampusShip"
+                          // Österreichische Post: veröffentlichte Beispiele 101... (22 Ziffern)
+                          // und internationales S10-Format (2 Buchstaben + 9 Ziffern + 2 Buchstaben).
+                          Regex("""^101\d{19}$""").matches(compact) -> "Österreichische Post / ELLA"
+                          Regex("""^[A-Z]{2}\d{9}[A-Z]{2}$""").matches(compact) -> "Österreichische Post / ELLA"
+                          // DHL: viele überlappende Formate; ohne eindeutiges Kennzeichen manuell auswählen.
                           else -> null
                       }
                   }
