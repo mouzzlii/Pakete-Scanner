@@ -30,7 +30,7 @@ jobs:
           gradle-version: '8.9'
 
       - name: Android SDK einrichten
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Android SDK-Lizenzen akzeptieren und Plattform installieren
         shell: bash
@@ -198,6 +198,7 @@ jobs:
                   var showForm by remember { mutableStateOf(false) }
                   var code by remember { mutableStateOf("") }
                   var carrier by remember { mutableStateOf("Bitte auswählen") }
+                  var carrierDetectionNote by remember { mutableStateOf("") }
                   var carrierMenuExpanded by remember { mutableStateOf(false) }
                   var customer by remember { mutableStateOf("") }
                   var note by remember { mutableStateOf("") }
@@ -208,10 +209,34 @@ jobs:
                       prefs.edit().putString("parcels", writeParcels(parcels)).apply()
                   }
 
-                  fun openForm(type: String, scanned: String = "") {
+                  fun detectCarrier(rawValue: String): String? {
+                      val normalized = rawValue.trim().uppercase(Locale.ROOT)
+                      val compact = normalized.replace(Regex("""[\s-]"""), "")
+
+                      // Hermes: offiziell 14 Ziffern oder H gefolgt von 19 Ziffern.
+                      if (Regex("""^H\d{19}$""").matches(compact) ||
+                          Regex("""^\d{14}$""").matches(compact)) return "Hermes"
+
+                      // GLS: 8-stellige Track-ID mit Z; 11 Ziffern als verbreitetes,
+                      // aber nicht exklusives Paketnummernformat.
+                      if (Regex("""^Z[A-Z0-9]{7}$""").matches(compact) ||
+                          Regex("""^\d{11}$""").matches(compact)) return "GLS"
+
+                      if (normalized.contains("HERMES")) return "Hermes"
+                      if (normalized.contains("GLS")) return "GLS"
+                      return null
+                  }
+
+                  fun openForm(type: String, scanned: String = "", detectedCarrier: String? = null) {
                       formType = type
                       code = scanned
-                      carrier = "Bitte auswählen"
+                      carrier = detectedCarrier ?: "Bitte auswählen"
+                      carrierDetectionNote = when {
+                          detectedCarrier == "GLS" -> "Automatisch als GLS erkannt (Formatprüfung) – bitte kurz kontrollieren."
+                          detectedCarrier == "Hermes" -> "Automatisch als Hermes erkannt – bitte kurz kontrollieren."
+                          scanned.isNotBlank() -> "Paketdienst nicht eindeutig erkannt. Bitte manuell auswählen."
+                          else -> ""
+                      }
                       carrierMenuExpanded = false
                       customer = ""
                       note = ""
@@ -339,7 +364,8 @@ jobs:
                                           GmsBarcodeScanning.getClient(this@MainActivity)
                                               .startScan()
                                               .addOnSuccessListener { result ->
-                                                  openForm("Annahme", result.rawValue ?: "")
+                                                  val scannedValue = result.rawValue ?: ""
+                                                  openForm("Annahme", scannedValue, detectCarrier(scannedValue))
                                               }
                                               .addOnFailureListener {
                                                   message = "Scanner nicht verfügbar. Bitte Nummer manuell eingeben."
@@ -448,6 +474,9 @@ jobs:
                                               keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
                                           )
                                           if (formType != "Abholung") {
+                                              if (carrierDetectionNote.isNotBlank()) {
+                                                  Text(carrierDetectionNote, color = Forest, fontSize = 12.sp)
+                                              }
                                               Box {
                                                   OutlinedButton(onClick = { carrierMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) { Text("Paketdienst: $carrier") }
                                                   DropdownMenu(expanded = carrierMenuExpanded, onDismissRequest = { carrierMenuExpanded = false }) {
