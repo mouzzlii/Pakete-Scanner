@@ -142,16 +142,23 @@ class MainActivity : ComponentActivity() {
         }
 
         fun testBluetoothSpp(device: BluetoothDevice) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                bluetoothPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
+            if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    bluetoothPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
+                } else {
+                    printerStatus = "Bluetooth-Berechtigung fehlt. Bitte App-Berechtigungen in Android prüfen."
+                }
                 return
             }
             printerStatus = "Prüfe Bluetooth-SPP-Verbindung …"
             coroutineScope.launch {
-                val result = withTimeoutOrNull(12_000) {
-                    connectBluetoothSpp(device)
-                } ?: "SPP-Verbindung nach 12 Sekunden abgebrochen. Gerät und Profil prüfen."
+                val result = try {
+                    withTimeoutOrNull(12_000) {
+                        connectBluetoothSpp(device)
+                    } ?: "SPP-Verbindung nach 12 Sekunden abgebrochen. Gerät und Profil prüfen."
+                } catch (_: SecurityException) {
+                    "Bluetooth-Zugriff verweigert. Berechtigung erneut prüfen."
+                }
                 printerStatus = result
             }
         }
