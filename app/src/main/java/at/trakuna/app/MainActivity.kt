@@ -193,11 +193,6 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        fun forwardCode(raw: String) {
-            detectCode(raw)
-            if (selected.isNotBlank()) openPortal()
-        }
-
         fun scan() {
             GmsBarcodeScanning.getClient(this@MainActivity)
                 .startScan()
@@ -259,7 +254,7 @@ class MainActivity : ComponentActivity() {
                         singleLine = true
                     )
                     OutlinedButton(
-                        onClick = { forwardCode(scannedCode) },
+                        onClick = { detectCode(scannedCode); openPortal() },
                         enabled = scannedCode.isNotBlank(),
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("ANBIETER ERKENNEN & PORTAL ÖFFNEN") }
