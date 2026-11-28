@@ -95,7 +95,7 @@ internal object DiagnosticLog {
         JSONArray()
     }
 
-    private fun redact(value: String): String {
+    internal fun redact(value: String): String {
         return value
             .replace(Regex("""(?i)\b(?:\d{1,3}\.){3}\d{1,3}\b"""), "[IP]")
             .replace(Regex("""(?i)\b[0-9a-f]{2}(?::[0-9a-f]{2}){5}\b"""), "[BT-ADRESSE]")
