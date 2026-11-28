@@ -258,8 +258,10 @@ jobs:
                       contract = ActivityResultContracts.OpenDocument()
                   ) { uri ->
                       if (uri != null) {
+                          var temporaryPdf: File? = null
                           try {
                               val source = File(cacheDir, "trakuna-label-${System.currentTimeMillis()}.pdf")
+                              temporaryPdf = source
                               contentResolver.openInputStream(uri)?.use { input ->
                                   source.outputStream().use { output -> input.copyTo(output) }
                               } ?: throw IllegalStateException("Datei konnte nicht gelesen werden")
@@ -277,6 +279,11 @@ jobs:
                               logEvent("PDF-Druckauftrag an Android-Drucksystem übergeben")
                               message = "Android-Druckdialog geöffnet. Drucker und Druckoptionen dort prüfen."
                           } catch (error: Exception) {
+                              temporaryPdf?.let { file ->
+                                  if (file.exists() && !file.delete()) {
+                                      logEvent("Temporäre Etikettendatei nach Druckfehler nicht gelöscht")
+                                  }
+                              }
                               logEvent("PDF-Druckfehler: ${error.javaClass.simpleName}")
                               message = "Druckvorbereitung fehlgeschlagen. Details stehen im Fehlerprotokoll."
                           }
