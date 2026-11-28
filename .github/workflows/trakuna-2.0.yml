@@ -211,6 +211,7 @@ jobs:
                   var value = raw.trim().uppercase(Locale.ROOT)
                   val gs1Data = value.startsWith("]C1")
                   if (gs1Data) value = value.removePrefix("]C1").trimStart()
+                  value = value.filterNot { it.isWhitespace() || it == '-' }
                   if (value.startsWith("(00)")) {
                       value = value.removePrefix("(00)")
                   } else if (gs1Data && value.startsWith("00") &&
@@ -890,7 +891,7 @@ jobs:
               @Test fun normalizesScannerPrefixesAndSeparators() {
                   assertEquals("1012345000000010110106", TrackingCodeResolver.normalize("]C1 10-12345-00000001-01-1010-6"))
                   assertEquals("123456789012345678", TrackingCodeResolver.normalize("(00) 123456789012345678"))
-                  assertEquals("123456789012345678", TrackingCodeResolver.normalize("]C100123456789012345678"))
+                  assertEquals("123456789012345678", TrackingCodeResolver.normalize("]C1 00 123456789012345678"))
               }
 
               @Test fun detectsAustrianPostWithValidStructureAndCheckDigit() {
