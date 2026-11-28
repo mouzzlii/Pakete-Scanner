@@ -45,10 +45,12 @@ Die Netzwerkprüfung läuft außerhalb des UI-Threads und verwendet ein Verbindu
 
 ## Drucker – aktueller Umfang
 
-- WLAN/LAN: manuelle TCP-Erreichbarkeitsprüfung eines selbst eingegebenen Hosts und Ports.
-- Bluetooth: Anzeige bereits gekoppelter Geräte und ein ausdrücklicher Bluetooth-Classic-SPP-Verbindungsversuch.
-- Es werden keine Druckdaten oder Etiketten gesendet oder erzeugt.
-- Eine erreichbare TCP-Adresse oder erfolgreiche SPP-Verbindung beweist weder IPP-Unterstützung noch Druckbereitschaft.
+- WLAN/LAN: TRAKUNA baut nach manueller Host-/Port-Eingabe eine TCP-Verbindung auf und hält den Socket bis zum manuellen Trennen bzw. bis zum Schließen der App offen.
+- Bluetooth: Anzeige bereits gekoppelter Geräte und Aufbau einer gehaltenen Bluetooth-Classic-SPP-Verbindung; der Nutzer kann sie in der App wieder trennen.
+- Es ist immer nur eine aktive Druckerverbindung vorgesehen; beim Wechsel wird die vorherige Verbindung geschlossen.
+- Beim Verlassen/Beenden der Activity wird die aktive Verbindung geschlossen.
+- Es werden weiterhin keine Druckdaten oder Etiketten gesendet oder erzeugt.
+- Eine gehaltene TCP-Verbindung oder erfolgreiche SPP-Verbindung beweist weder IPP-Unterstützung noch Druckbereitschaft. Port 631 allein ist kein Nachweis für eine vollständige IPP-Implementierung.
 - IPP/IPPS, mDNS/DNS-SD, LPR, BLE/GATT und Druckformatadapter sind noch nicht implementiert.
 
 ## Fehlerprotokoll
