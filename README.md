@@ -11,6 +11,9 @@ ist ein älterer Build-Snapshot und nicht die maßgebliche aktuelle Implementier
 Die Code-Erkennung, Normalisierung und Zuordnung sind in
 [TRAKUNA-2.0-CODE-MATCHING.md](TRAKUNA-2.0-CODE-MATCHING.md) dokumentiert.
 
+Der aktuelle Druckpfad und seine Grenzen sind in
+[TRAKUNA-2.0-PRINTING.md](TRAKUNA-2.0-PRINTING.md) dokumentiert.
+
 Der Entwurfszweig ist nicht mit `main` zusammengeführt. Ein Android-Geräte- und
 Etikettendrucker-Hardwaretest steht noch aus.
 
