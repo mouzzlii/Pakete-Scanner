@@ -388,8 +388,14 @@ class MainActivity : ComponentActivity() {
                         onStopDiscovery = { stopNetworkPrinterDiscovery() },
                         onSelectDiscoveredPrinter = { found ->
                             printerHost = found.host
-                            // Keep the RAW-TCP port separate from the advertised IPP/LPR service port.
-                            printerStatus = "${found.name} gefunden (${found.serviceType}, Port ${found.port}). Host übernommen; RAW-TCP-Port bei Bedarf separat einstellen."
+                            // Only the PDL datastream service advertises a direct print-data TCP endpoint.
+                            if (found.serviceType.equals("_pdl-datastream._tcp.", ignoreCase = true)) {
+                                printerPort = found.port.toString()
+                                printerStatus = "${found.name} gefunden. Host und PDL-Datastream-Port übernommen; Druckersprache bleibt zu prüfen."
+                            } else {
+                                // IPP/IPPS and LPR-style service ports are not RAW-TCP ports.
+                                printerStatus = "${found.name} gefunden (${found.serviceType}, Port ${found.port}). Host übernommen; RAW-TCP-Port bleibt separat."
+                            }
                         },
                         onHostChange = { printerHost = it },
                         onPortChange = { printerPort = it.filter(Char::isDigit).take(5) },
