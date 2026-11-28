@@ -338,7 +338,7 @@ class MainActivity : ComponentActivity() {
                         onTestBluetooth = { device -> testBluetoothSpp(device) }
                     )
                     Spacer(Modifier.height(18.dp))
-                    DiagnosticLogSection()
+                    DiagnosticLogSection(refreshKey = "$status|$printerStatus")
                     Spacer(Modifier.height(18.dp))
                     Text(
                         "Browser-Modus: Anbieterportal im externen Browser. TRAKUNA speichert keine Passwörter und führt keine Buchung, Labelbestellung oder Druckaktion aus.",
