@@ -177,6 +177,7 @@ jobs:
           import java.io.FileOutputStream
           import android.content.Intent
           import android.net.Uri
+          import android.provider.Settings
           import androidx.activity.ComponentActivity
           import androidx.activity.compose.setContent
           import androidx.compose.foundation.background
@@ -603,6 +604,20 @@ jobs:
                                       onClick = { page = "home" },
                                       modifier = Modifier.fillMaxWidth()
                                   ) { Text("ZURÜCK") }
+                                  Spacer(Modifier.height(6.dp))
+                                  OutlinedButton(
+                                      onClick = {
+                                          try {
+                                              logEvent("Android-Druckereinstellungen geöffnet")
+                                              startActivity(Intent(Settings.ACTION_PRINT_SETTINGS))
+                                              message = "Android-Druckereinstellungen geöffnet. Aktiviere dort einen kompatiblen Druckdienst und richte deinen einen Drucker ein."
+                                          } catch (error: Exception) {
+                                              logEvent("Druckereinstellungen nicht verfügbar: ${error.javaClass.simpleName}")
+                                              message = "Die Android-Druckereinstellungen konnten nicht geöffnet werden."
+                                          }
+                                      },
+                                      modifier = Modifier.fillMaxWidth()
+                                  ) { Text("DRUCKER EINRICHTEN") }
                                   Spacer(Modifier.height(6.dp))
                                   OutlinedButton(
                                       onClick = { pdfPicker.launch(arrayOf("application/pdf")) },
