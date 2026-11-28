@@ -40,8 +40,8 @@
 
 ## Tests und offene Verifikation
 
-- 8 eigenständige Kotlin-Assertions für Normalisierung, Post-Prüfziffer, UPS-Format, DPD-Kandidat, SSCC und unbekannte Codes lokal mit `kotlinc` ausgeführt: **bestanden**.
-- 7 JUnit-Tests sind im Android-Buildworkflow ergänzt und werden dort über `testDebugUnitTest` aufgerufen.
+- 10 eigenständige Kotlin-Assertions für Normalisierung, Post-Prüfziffer, UPS-Format, DPD-Kandidat, SSCC und unbekannte Codes lokal mit `kotlinc` ausgeführt: **bestanden**.
+- 9 JUnit-Tests sind im Android-Buildworkflow ergänzt und werden dort über `testDebugUnitTest` aufgerufen.
 - Für den aktuellen Branch-Head liegt noch kein bestätigter GitHub-Actions-Lauf vor.
 - Android-/Compose-Gesamtbuild, Installation auf einem realen Android-Gerät und Kameratests sind noch nicht bestätigt.
 - Der Scan- und Zuordnungsablauf muss mit echten, anonymisierten Testetiketten der fünf tatsächlich eingesetzten Paketdienste geprüft werden.
