@@ -95,7 +95,7 @@ class MainActivity : ComponentActivity() {
         var status by remember { mutableStateOf("Bereit. Paket scannen oder Anbieter auswählen.") }
         var detected by remember { mutableStateOf(false) }
         var printerHost by remember { mutableStateOf("") }
-        var printerPort by remember { mutableStateOf("631") }
+        var printerPort by remember { mutableStateOf("9100") }
         var printerStatus by remember { mutableStateOf("Noch keine Druckerverbindung hergestellt.") }
         var printerConnected by remember { mutableStateOf(false) }
         var printerConnectionAttempt by remember { mutableIntStateOf(0) }
