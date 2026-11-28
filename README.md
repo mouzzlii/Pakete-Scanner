@@ -45,14 +45,15 @@ Die Netzwerkprüfung läuft außerhalb des UI-Threads und verwendet ein Verbindu
 
 ## Drucker – aktueller Umfang
 
-- WLAN/LAN: modellunabhängiger RAW-TCP-Transport. TRAKUNA baut nach manueller Host-/Port-Eingabe eine TCP-Verbindung auf (Standardport 9100) und hält den Socket bis zum manuellen Trennen bzw. bis zum Schließen der App offen. Der Drucker muss RAW-TCP unterstützen; Port 9100 ist verbreitet, aber nicht universell.
+- WLAN/LAN: automatische DNS-SD/mDNS-Erkennung für die Dienste `_ipp._tcp`, `_ipps._tcp`, `_printer._tcp` und `_pdl-datastream._tcp`; gefundene Geräte können in die Host-/Port-Felder übernommen werden. Die Suche findet nur Geräte, die diese Dienste im lokalen Netz ankündigen. Eine Anzeige ist kein Kompatibilitäts- oder Druckbereitschaftsnachweis.
+- WLAN/LAN: modellunabhängiger RAW-TCP-Transport. TRAKUNA baut nach manueller Host-/Port-Eingabe (oder Übernahme eines gefundenen Endpunkts) eine TCP-Verbindung auf (Standardport 9100) und hält den Socket bis zum manuellen Trennen bzw. bis zum Schließen der App offen. Der Drucker muss RAW-TCP unterstützen; Port 9100 ist verbreitet, aber nicht universell.
 - Bluetooth: Anzeige bereits gekoppelter Geräte und Aufbau einer gehaltenen Bluetooth-Classic-SPP-Verbindung; der Nutzer kann sie in der App wieder trennen. Der Drucker muss ein serielles SPP-Profil anbieten.
 - Die Transport-Schnittstelle ist herstellerunabhängig und benötigt kein bestimmtes Druckermodell. Sie kann aber nicht automatisch jedes Druckprotokoll oder jedes Bluetooth-Profil übersetzen.
 - Es ist immer nur eine aktive Druckerverbindung vorgesehen; beim Wechsel wird die vorherige Verbindung geschlossen.
 - Beim Verlassen/Beenden der Activity wird die aktive Verbindung geschlossen.
 - Es werden weiterhin keine Druckdaten oder Etiketten gesendet oder erzeugt.
 - Eine gehaltene TCP-Verbindung oder erfolgreiche SPP-Verbindung beweist weder IPP-Unterstützung noch Druckbereitschaft. Port 631 allein ist kein Nachweis für eine vollständige IPP-Implementierung.
-- IPP/IPPS, mDNS/DNS-SD, LPR, BLE/GATT und Druckformatadapter sind noch nicht implementiert.
+- Die Erkennung nutzt mDNS/DNS-SD-Ankündigungen; ein vollständiger IPP-/IPPS-Druckclient, LPR, BLE/GATT und Druckformatadapter sind noch nicht implementiert.
 
 ## Fehlerprotokoll
 
