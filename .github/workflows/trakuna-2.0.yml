@@ -3,6 +3,12 @@ name: Build TRAKUNA 2.0
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - trakuna-2.0-hardening
+concurrency:
+  group: trakuna-2-build-${{ github.ref_name }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -13,26 +19,31 @@ jobs:
 
     steps:
       - name: Repository laden
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Java einrichten
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Gradle einrichten
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
-
       - name: Android SDK einrichten
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
 
       - name: Android SDK-Lizenzen akzeptieren und Plattform installieren
         shell: bash
         run: |
+          # sdkmanager schließt die Eingabe-Pipe nach erfolgreicher Lizenzannahme.
+          # pipefail würde dadurch den erwarteten SIGPIPE von "yes" fälschlich als Fehler werten.
+          set +o pipefail
           yes | sdkmanager --licenses
+          license_status=${PIPESTATUS[1]}
+          set -o pipefail
+          if [ "$license_status" -ne 0 ]; then
+            exit "$license_status"
+          fi
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Android-Projekt erstellen
@@ -40,6 +51,7 @@ jobs:
         run: |
           mkdir -p app/src/main/java/at/trakuna/app
           mkdir -p app/src/main/res/values
+          mkdir -p app/src/test/java/at/trakuna/app
 
           cat > settings.gradle.kts <<'EOF'
           pluginManagement {
@@ -93,6 +105,15 @@ jobs:
                   versionName = "2.0"
               }
 
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+
               buildFeatures {
                   compose = true
               }
@@ -106,18 +127,19 @@ jobs:
               implementation("androidx.compose.material3:material3")
               implementation("androidx.compose.foundation:foundation")
               implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
+              testImplementation("junit:junit:4.13.2")
           }
           EOF
 
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <application
-                  android:allowBackup="true"
+                  android:allowBackup="false"
                   android:label="TRAKUNA"
                   android:theme="@android:style/Theme.Material.Light.NoActionBar">
                   <meta-data
                       android:name="com.google.mlkit.vision.DEPENDENCIES"
-                      android:value="barcode" />
+                      android:value="barcode_ui" />
                   <activity
                       android:name=".MainActivity"
                       android:exported="true">
@@ -134,6 +156,28 @@ jobs:
           package at.trakuna.app
 
           import android.os.Bundle
+          import android.os.CancellationSignal
+          import android.os.ParcelFileDescriptor
+          import android.graphics.Bitmap
+          import android.graphics.Color as AndroidColor
+          import android.graphics.Paint
+          import android.graphics.RectF
+          import android.graphics.pdf.PdfDocument
+          import android.graphics.pdf.PdfRenderer
+          import android.print.PrintAttributes
+          import android.print.PrintDocumentAdapter
+          import android.print.PrintDocumentInfo
+          import android.print.PrintManager
+          import android.print.PrintAttributes.MediaSize
+          import android.print.PrintAttributes.Resolution
+          import android.print.PrintAttributes.Margins
+          import androidx.activity.compose.rememberLauncherForActivityResult
+          import androidx.activity.result.contract.ActivityResultContracts
+          import java.io.File
+          import java.io.FileOutputStream
+          import android.content.Intent
+          import android.net.Uri
+          import android.provider.Settings
           import androidx.activity.ComponentActivity
           import androidx.activity.compose.setContent
           import androidx.compose.foundation.background
@@ -151,13 +195,78 @@ jobs:
           import androidx.compose.ui.unit.sp
           import androidx.compose.ui.text.font.FontWeight
           import androidx.compose.ui.text.input.KeyboardType
-          import com.google.android.gms.mlkit.codescanner.GmsBarcodeScanning
+          import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
           import org.json.JSONArray
           import org.json.JSONObject
           import java.text.SimpleDateFormat
           import java.util.Date
           import java.util.Locale
-          import kotlin.random.Random
+
+          data class CarrierDetection(val carrier: String?, val isCertain: Boolean, val message: String)
+
+          /** Conservative provider-neutral identification. A number length alone is never proof. */
+          object TrackingCodeResolver {
+              private val postProductCodes = setOf("01", "02", "07", "08", "10", "12", "30", "39")
+
+              fun normalize(raw: String): String {
+                  var value = raw.trim().uppercase(Locale.ROOT)
+                  val gs1Data = value.startsWith("]C1")
+                  if (gs1Data) value = value.removePrefix("]C1").trimStart()
+                  value = value.filterNot { it.isWhitespace() || it == '-' }
+                  if (value.startsWith("(00)")) {
+                      value = value.removePrefix("(00)")
+                  } else if (gs1Data && value.startsWith("00") &&
+                      value.length == 20 && value.drop(2).matches(Regex("[0-9]{18}"))) {
+                      // GS1 AI (00) follows the ]C1 symbology identifier.
+                      value = value.drop(2)
+                  }
+                  return value.filterNot { it.isWhitespace() || it == '-' }
+              }
+
+              fun matchingIndices(existingCodes: List<String>, scanned: String): List<Int> {
+                  val target = normalize(scanned)
+                  if (target.isBlank()) return emptyList()
+                  return existingCodes.indices.filter { normalize(existingCodes[it]) == target }
+              }
+
+              fun detect(raw: String): CarrierDetection {
+                  val code = normalize(raw)
+                  if (code.isBlank()) return CarrierDetection(null, false, "Noch kein Barcode erfasst.")
+                  if (code.matches(Regex("[0-9]{22}")) && isValidAustrianPostCode(code)) {
+                      return CarrierDetection("Österreichische Post", true,
+                          "Österreichische Post erkannt: 22-stelliger IdentCode mit gültiger Prüfziffer.")
+                  }
+                  // A 1Z-shaped value is only a format hint. Without a trusted carrier
+                  // lookup it must never be treated as a 100% carrier assignment.
+                  if (code.matches(Regex("1Z[A-Z0-9]{6}[0-9]{2}[0-9]{8}"))) {
+                      return CarrierDetection("UPS", false,
+                          "Mögliches UPS-1Z-Format. Die Formatprüfung allein bestätigt den Paketdienst nicht; bitte manuell prüfen.")
+                  }
+                  if (code.matches(Regex("[0-9]{18}"))) {
+                      return CarrierDetection(null, false,
+                          "18-stelliger GS1-SSCC erkannt. Er identifiziert eine Logistikeinheit, aber nicht automatisch den Paketdienst.")
+                  }
+                  if (code.matches(Regex("[0-9]{14}"))) {
+                      return CarrierDetection("DPD", false,
+                          "Mögliche DPD-Sendungsnummer (14 Ziffern). Bitte Paketdienst ausdrücklich bestätigen.")
+                  }
+                  if (code.matches(Regex("[A-Z0-9]{8}")) || code.matches(Regex("[0-9]{11,12}"))) {
+                      return CarrierDetection("GLS", false,
+                          "Mögliche GLS Track-ID (8 alphanumerische Zeichen) oder Paketnummer (11/12 Ziffern). Bitte Paketdienst ausdrücklich bestätigen.")
+                  }
+                  return CarrierDetection(null, false,
+                      "Paketdienst nicht sicher erkannt. Bitte Paketdienst manuell auswählen.")
+              }
+
+              private fun isValidAustrianPostCode(code: String): Boolean {
+                  if (!code.startsWith("10") || code.substring(15, 17) !in postProductCodes) return false
+                  val weightedSum = code.take(21).mapIndexed { index, char ->
+                      char.digitToInt() * if (index % 2 == 0) 3 else 1
+                  }.sum()
+                  val expectedCheckDigit = (10 - (weightedSum % 10)) % 10
+                  return code.last().digitToInt() == expectedCheckDigit
+              }
+          }
 
           private val Forest = Color(0xFF174D39)
           private val Pale = Color(0xFFF1F5F2)
@@ -169,13 +278,60 @@ jobs:
               val customer: String,
               val type: String,
               val status: String,
-              val pin: String,
               val time: Long
           )
 
           class MainActivity : ComponentActivity() {
+              companion object {
+                  @Volatile private var crashHandlerInstalled = false
+              }
+
+              private fun logEvent(event: String) {
+                  val prefs = getSharedPreferences("trakuna_diagnostics", MODE_PRIVATE)
+                  val previous = prefs.getString("events", "") ?: ""
+                  val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+                  val entries = (previous.lines().filter { it.isNotBlank() } + "$timestamp | $event").takeLast(200)
+                  prefs.edit().putString("events", entries.joinToString("\n")).apply()
+              }
+
+              private fun diagnosticsText(): String {
+                  val events = getSharedPreferences("trakuna_diagnostics", MODE_PRIVATE)
+                      .getString("events", "") ?: ""
+                  return "TRAKUNA 2.0 – technisches Testprotokoll\n" +
+                      "Android: " + android.os.Build.VERSION.RELEASE + "\n" +
+                      "Gerät: " + android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL + "\n\n" +
+                      (if (events.isBlank()) "Noch keine Ereignisse protokolliert." else events)
+              }
+
+              private fun logCrash(error: Throwable) {
+                  try {
+                      val prefs = getSharedPreferences("trakuna_diagnostics", MODE_PRIVATE)
+                      val previous = prefs.getString("events", "") ?: ""
+                      val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+                      val trace = error.stackTrace.take(8)
+                          .joinToString(" <- ") { "${it.className}.${it.methodName}:${it.lineNumber}" }
+                      val entry = "$timestamp | Nicht abgefangener App-Fehler: ${error.javaClass.simpleName}; $trace"
+                      val entries = (previous.lines().filter { it.isNotBlank() } + entry).takeLast(200)
+                      // Commit synchronously: the process may terminate immediately after this handler.
+                      prefs.edit().putString("events", entries.joinToString("\n")).commit()
+                  } catch (_: Exception) {
+                      // Never prevent Android's original crash handler from running.
+                  }
+              }
+
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
+                  if (!crashHandlerInstalled) {
+                      val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
+                      if (previousHandler != null) {
+                          Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+                              logCrash(error)
+                              previousHandler.uncaughtException(thread, error)
+                          }
+                          crashHandlerInstalled = true
+                      }
+                  }
+                  logEvent("App gestartet")
                   setContent { TrakunaApp() }
               }
 
@@ -192,60 +348,136 @@ jobs:
                   var formType by remember { mutableStateOf("Annahme") }
                   var showForm by remember { mutableStateOf(false) }
                   var code by remember { mutableStateOf("") }
-                  var carrier by remember { mutableStateOf("Unbekannt") }
+                  var carrier by remember { mutableStateOf("Nicht ausgewählt") }
                   var customer by remember { mutableStateOf("") }
-                  var note by remember { mutableStateOf("") }
                   var message by remember { mutableStateOf("") }
                   var search by remember { mutableStateOf("") }
+                  var scanFormat by remember { mutableStateOf<Int?>(null) }
+                  val codeDetection = TrackingCodeResolver.detect(code)
+                  val pickupMatches = parcels.filter {
+                      TrackingCodeResolver.normalize(it.code) == TrackingCodeResolver.normalize(code)
+                  }
+
+                  val pdfPicker = rememberLauncherForActivityResult(
+                      contract = ActivityResultContracts.OpenDocument()
+                  ) { uri ->
+                      if (uri != null) {
+                          var temporaryPdf: File? = null
+                          try {
+                              val source = File(cacheDir, "trakuna-label-${System.currentTimeMillis()}.pdf")
+                              temporaryPdf = source
+                              contentResolver.openInputStream(uri)?.use { input ->
+                                  source.outputStream().use { output -> input.copyTo(output) }
+                              } ?: throw IllegalStateException("Datei konnte nicht gelesen werden")
+                              val manager = getSystemService(PRINT_SERVICE) as PrintManager
+                              val attributes = PrintAttributes.Builder()
+                                  .setMediaSize(MediaSize("TRAKUNA_100x150", "100 x 150 mm", 3937, 5906))
+                                  .setResolution(Resolution("TRAKUNA_300DPI", "300 dpi", 300, 300))
+                                  .setMinMargins(Margins.NO_MARGINS)
+                                  .build()
+                              manager.print(
+                                  "TRAKUNA Versandetikett",
+                                  PdfLabelPrintAdapter(source) { event -> logEvent(event) },
+                                  attributes
+                              )
+                              logEvent("PDF-Druckauftrag an Android-Drucksystem übergeben")
+                              message = "Android-Druckdialog geöffnet. Drucker und Druckoptionen dort prüfen."
+                          } catch (error: Exception) {
+                              temporaryPdf?.let { file ->
+                                  if (file.exists() && !file.delete()) {
+                                      logEvent("Temporäre Etikettendatei nach Druckfehler nicht gelöscht")
+                                  }
+                              }
+                              logEvent("PDF-Druckfehler: ${error.javaClass.simpleName}")
+                              message = "Druckvorbereitung fehlgeschlagen. Details stehen im Fehlerprotokoll."
+                          }
+                      }
+                  }
 
                   fun persist() {
                       prefs.edit().putString("parcels", writeParcels(parcels)).apply()
                   }
 
-                  fun openForm(type: String, scanned: String = "") {
+                  fun openForm(type: String, scanned: String = "", format: Int? = null) {
                       formType = type
                       code = scanned
-                      carrier = "Unbekannt"
+                      scanFormat = format
+                      val detection = TrackingCodeResolver.detect(scanned)
+                      carrier = if (detection.isCertain) detection.carrier ?: "Nicht ausgewählt" else "Nicht ausgewählt"
                       customer = ""
-                      note = ""
                       message = ""
                       showForm = true
+                  }
+
+                  fun scanAndOpen(type: String) {
+                      logEvent("Google-Scanner gestartet: $type")
+                      GmsBarcodeScanning.getClient(this@MainActivity)
+                          .startScan()
+                          .addOnSuccessListener { result ->
+                              logEvent("Google-Scanner erfolgreich: $type, Format ${result.format}")
+                              openForm(type, result.rawValue ?: "", result.format)
+                          }
+                          .addOnFailureListener {
+                              logEvent("Google-Scanner Fehler: $type")
+                              openForm(type)
+                              message = "Scanner nicht verfügbar. Nummer bitte eingeben."
+                          }
                   }
 
                   fun saveOperation() {
                       val entered = code.trim()
                       if (entered.isBlank()) {
-                          message = "Bitte Sendungsnummer oder Abhol-PIN eingeben."
+                          logEvent("Speichern abgebrochen: Sendungsnummer fehlt")
+                          message = "Bitte Sendungsnummer eingeben."
                           return
                       }
 
                       if (formType == "Abholung") {
-                          val index = parcels.indexOfFirst {
-                              it.code.equals(entered, true) || it.pin == entered
-                          }
-                          if (index < 0) {
-                              message = "Keine passende Sendung gefunden."
+                          val matches = TrackingCodeResolver.matchingIndices(parcels.map { it.code }, entered)
+                          if (matches.isEmpty()) {
+                              message = "Keine passende Sendung gefunden. Bitte Code prüfen oder Sendung zuerst erfassen."
                               return
                           }
+                          if (matches.size > 1) {
+                              message = "Mehrere Sendungen haben diesen Code. Abholung aus Sicherheitsgründen nicht automatisch möglich."
+                              return
+                          }
+                          val index = matches.single()
                           if (parcels[index].status == "Abgeholt") {
                               message = "Diese Sendung wurde bereits abgeholt."
                               return
                           }
                           parcels[index] = parcels[index].copy(status = "Abgeholt")
+                          logEvent("Abholung bestätigt")
                           persist()
-                          message = "Abholung lokal dokumentiert."
+                          message = "Abholung bestätigt."
                           showForm = false
                           return
                       }
 
-                      val pin = if (formType == "Annahme") {
-                          Random.nextInt(1000, 10000).toString()
-                      } else ""
+                      val detection = TrackingCodeResolver.detect(entered)
+                      val selectedCarrier = if (carrier == "Nicht ausgewählt" && detection.isCertain) detection.carrier ?: carrier else carrier
+                      if (selectedCarrier == "Nicht ausgewählt") {
+                          message = detection.message + " Bitte vor dem Speichern einen Paketdienst auswählen."
+                          return
+                      }
+                      if (detection.isCertain && detection.carrier != null && selectedCarrier != detection.carrier) {
+                          message = "Der Code passt eindeutig zu ${detection.carrier}. Bitte Auswahl prüfen."
+                          return
+                      }
+
+                      if (parcels.any {
+                              TrackingCodeResolver.normalize(it.code) == TrackingCodeResolver.normalize(entered) && it.status != "Abgeholt"
+                          }) {
+                          logEvent("Speichern verhindert: aktive Doppelnummer erkannt")
+                          message = "Diese Sendungsnummer ist bereits aktiv erfasst."
+                          return
+                      }
 
                       val status = when (formType) {
                           "Annahme" -> "Eingelagert"
-                          "Retoure" -> "Zur Übergabe bereit"
-                          else -> "Versand vorgemerkt"
+                          "Retoure" -> "Retoure angenommen"
+                          else -> "Versand angenommen"
                       }
 
                       parcels.add(
@@ -253,20 +485,16 @@ jobs:
                           Parcel(
                               System.currentTimeMillis().toString(),
                               entered,
-                              carrier,
+                              selectedCarrier.trim(),
                               customer.trim(),
                               formType,
                               status,
-                              pin,
                               System.currentTimeMillis()
                           )
                       )
+                      logEvent("Sendung lokal gespeichert: $formType")
                       persist()
-                      message = if (pin.isNotEmpty()) {
-                          "Lokal gespeichert. Abhol-PIN: $pin"
-                      } else {
-                          "Vorgang lokal gespeichert."
-                      }
+                      message = "Sendung lokal gespeichert."
                       showForm = false
                   }
 
@@ -312,61 +540,31 @@ jobs:
                               Spacer(Modifier.height(18.dp))
 
                               if (page == "home") {
-                                  Text("Paketshop-Zentrale", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                                  Text("Was möchtest du erledigen?", color = Color.DarkGray)
+                                  Text("Was möchtest du erledigen?", fontSize = 22.sp, fontWeight = FontWeight.Bold)
                                   Spacer(Modifier.height(16.dp))
-
-                                  Button(
-                                      onClick = {
-                                          GmsBarcodeScanning.getClient(this@MainActivity)
-                                              .startScan()
-                                              .addOnSuccessListener { result ->
-                                                  openForm("Annahme", result.rawValue ?: "")
-                                              }
-                                              .addOnFailureListener {
-                                                  message = "Scanner nicht verfügbar. Bitte Nummer manuell eingeben."
-                                                  openForm("Annahme")
-                                              }
-                                      },
-                                      modifier = Modifier.fillMaxWidth().height(64.dp),
-                                      shape = RoundedCornerShape(16.dp)
-                                  ) {
-                                      Text("▦  PAKET SCANNEN", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                  ActionButton("PAKET FÜR KUNDEN ANNEHMEN", "Scannen oder Nummer eingeben") {
+                                      scanAndOpen("Annahme")
                                   }
-
-                                  Spacer(Modifier.height(14.dp))
-
-                                  ActionButton("ANNAHME", "Sendung entgegennehmen") { openForm("Annahme") }
-                                  ActionButton("ABHOLUNG", "Sendung an Kunden ausgeben") { openForm("Abholung") }
-                                  ActionButton("RETOURE", "Retoure entgegennehmen") { openForm("Retoure") }
-                                  ActionButton("VERSAND", "Ausgehenden Versand vormerken") { openForm("Versand") }
-
-                                  Spacer(Modifier.height(14.dp))
-                                  Card(
-                                      modifier = Modifier.fillMaxWidth(),
-                                      colors = CardDefaults.cardColors(containerColor = Color.White)
-                                  ) {
-                                      Column(Modifier.padding(16.dp)) {
-                                          Text("HEUTE IM ÜBERBLICK", fontWeight = FontWeight.Bold, color = Forest)
-                                          Spacer(Modifier.height(8.dp))
-                                          Text("Erfasste Vorgänge: ${parcels.size}")
-                                          Text("Noch nicht abgeholt: ${parcels.count { it.status != "Abgeholt" }}")
-                                      }
+                                  ActionButton("VERSAND VOM KUNDEN ANNEHMEN", "Sendung erfassen") {
+                                      scanAndOpen("Versand")
                                   }
-                                  Spacer(Modifier.height(8.dp))
-                                  OutlinedButton(
-                                      onClick = { page = "list" },
-                                      modifier = Modifier.fillMaxWidth()
-                                  ) {
-                                      Text("SENDUNGSÜBERSICHT  (${parcels.size})")
+                                  ActionButton("RETOURE ANNEHMEN", "Retoure erfassen") {
+                                      scanAndOpen("Retoure")
+                                  }
+                                  ActionButton("SENDUNGEN SUCHEN / ABHOLUNG", "Offene und erledigte Sendungen") {
+                                      page = "list"
                                   }
                               } else {
                                   Text("Sendungsübersicht", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                                   OutlinedButton(
+                                       onClick = { scanAndOpen("Abholung") },
+                                       modifier = Modifier.fillMaxWidth()
+                                   ) { Text("BARCODE ZUR ABHOLUNG SCANNEN") }
                                   Spacer(Modifier.height(10.dp))
                                   OutlinedTextField(
                                       value = search,
                                       onValueChange = { search = it },
-                                      label = { Text("Sendungsnummer oder Kunde suchen") },
+                                      label = { Text("Sendungsnummer, Kunde oder Paketdienst suchen") },
                                       modifier = Modifier.fillMaxWidth(),
                                       singleLine = true
                                   )
@@ -374,9 +572,9 @@ jobs:
                                   LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                       items(
                                           parcels.filter {
-                                              it.code.contains(search, true) ||
+                                              TrackingCodeResolver.normalize(it.code).contains(TrackingCodeResolver.normalize(search)) ||
                                               it.customer.contains(search, true) ||
-                                              it.pin.contains(search, true)
+                                              it.carrier.contains(search, true)
                                           },
                                           key = { it.id }
                                       ) { parcel ->
@@ -386,7 +584,11 @@ jobs:
                                                   Text("${parcel.type} • ${parcel.carrier}")
                                                   if (parcel.customer.isNotBlank()) Text("Kunde: ${parcel.customer}")
                                                   Text("Status: ${parcel.status}")
-                                                  if (parcel.pin.isNotBlank()) Text("Abhol-PIN: ${parcel.pin}")
+                                                  if (parcel.status != "Abgeholt") {
+                                                      TextButton(onClick = { openForm("Abholung", parcel.code) }) {
+                                                          Text("ABHOLUNG BESTÄTIGEN")
+                                                      }
+                                                  }
                                                   Text(
                                                       SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY)
                                                           .format(Date(parcel.time)),
@@ -402,6 +604,38 @@ jobs:
                                       onClick = { page = "home" },
                                       modifier = Modifier.fillMaxWidth()
                                   ) { Text("ZURÜCK") }
+                                  Spacer(Modifier.height(6.dp))
+                                  OutlinedButton(
+                                      onClick = {
+                                          try {
+                                              logEvent("Android-Druckereinstellungen geöffnet")
+                                              startActivity(Intent(Settings.ACTION_PRINT_SETTINGS))
+                                              message = "Android-Druckereinstellungen geöffnet. Aktiviere dort einen kompatiblen Druckdienst und richte deinen einen Drucker ein."
+                                          } catch (error: Exception) {
+                                              logEvent("Druckereinstellungen nicht verfügbar: ${error.javaClass.simpleName}")
+                                              message = "Die Android-Druckereinstellungen konnten nicht geöffnet werden."
+                                          }
+                                      },
+                                      modifier = Modifier.fillMaxWidth()
+                                  ) { Text("DRUCKER EINRICHTEN") }
+                                  Spacer(Modifier.height(6.dp))
+                                  OutlinedButton(
+                                      onClick = { pdfPicker.launch(arrayOf("application/pdf")) },
+                                      modifier = Modifier.fillMaxWidth()
+                                  ) { Text("VERSANDETIKETT AUS PDF DRUCKEN") }
+                                  Spacer(Modifier.height(6.dp))
+                                  OutlinedButton(
+                                      onClick = {
+                                          logEvent("Testprotokoll geteilt")
+                                          val share = Intent(Intent.ACTION_SEND).apply {
+                                              type = "text/plain"
+                                              putExtra(Intent.EXTRA_SUBJECT, "TRAKUNA 2.0 – Fehlerprotokoll")
+                                              putExtra(Intent.EXTRA_TEXT, diagnosticsText())
+                                          }
+                                          startActivity(Intent.createChooser(share, "Fehlerprotokoll teilen"))
+                                      },
+                                      modifier = Modifier.fillMaxWidth()
+                                  ) { Text("FEHLERPROTOKOLL TEILEN") }
                               }
 
                               if (message.isNotBlank()) {
@@ -418,32 +652,83 @@ jobs:
                                       Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                           OutlinedTextField(
                                               value = code,
-                                              onValueChange = { code = it },
+                                              onValueChange = { value ->
+                                                   code = value
+                                                   val detection = TrackingCodeResolver.detect(value)
+                                                   carrier = if (detection.isCertain) detection.carrier ?: "Nicht ausgewählt" else "Nicht ausgewählt"
+                                               },
                                               label = {
-                                                  Text(if (formType == "Abholung") "Sendungsnummer oder Abhol-PIN" else "Sendungsnummer / Barcode")
+                                                  Text("Sendungsnummer / Barcode")
                                               },
                                               singleLine = true,
                                               keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
                                           )
-                                          if (formType != "Abholung") {
-                                              OutlinedTextField(
-                                                  value = carrier,
-                                                  onValueChange = { carrier = it },
-                                                  label = { Text("Paketdienst (z. B. Post, DHL, DPD, GLS, UPS)") },
-                                                  singleLine = true
-                                              )
+                                          if (formType == "Abholung" && code.isNotBlank()) {
+                                               when (pickupMatches.size) {
+                                                   0 -> Text("Keine Sendung mit diesem Code gefunden.", color = Forest)
+                                                   1 -> {
+                                                       val parcel = pickupMatches.single()
+                                                       Text("Gefundene Sendung: ${parcel.carrier}", fontWeight = FontWeight.Bold, color = Forest)
+                                                       if (parcel.customer.isNotBlank()) Text("Kunde: ${parcel.customer}")
+                                                       Text("Vorgang: ${parcel.type} • Status: ${parcel.status}")
+                                                   }
+                                                   else -> Text("${pickupMatches.size} Sendungen mit diesem Code gefunden. Bitte keine automatische Abholung durchführen.", color = Forest)
+                                               }
+                                           }
+                                           if (formType != "Abholung") {
+                                              if (scanFormat != null) {
+                                                   Text("Scannerformat: $scanFormat", fontSize = 12.sp, color = Color.Gray)
+                                               }
+                                               if (code.isNotBlank()) {
+                                                   Text(codeDetection.message, fontSize = 12.sp, color = Forest)
+                                               }
+                                               var carrierMenuExpanded by remember { mutableStateOf(false) }
+                                              Box {
+                                                  OutlinedButton(
+                                                      onClick = { carrierMenuExpanded = true },
+                                                      modifier = Modifier.fillMaxWidth()
+                                                  ) {
+                                                      Text("Paketdienst: $carrier")
+                                                  }
+                                                  DropdownMenu(
+                                                      expanded = carrierMenuExpanded,
+                                                      onDismissRequest = { carrierMenuExpanded = false }
+                                                  ) {
+                                                      listOf("Nicht ausgewählt", "Österreichische Post", "DHL", "DPD", "GLS", "UPS").forEach { option ->
+                                                          DropdownMenuItem(
+                                                              text = { Text(option) },
+                                                              onClick = {
+                                                                  carrier = option
+                                                                  carrierMenuExpanded = false
+                                                              }
+                                                          )
+                                                      }
+                                                  }
+                                              }
                                               OutlinedTextField(
                                                   value = customer,
                                                   onValueChange = { customer = it },
                                                   label = { Text("Kundenname (optional)") },
                                                   singleLine = true
                                               )
-                                              OutlinedTextField(
-                                                  value = note,
-                                                  onValueChange = { note = it },
-                                                  label = { Text("Notiz (optional)") },
-                                                  singleLine = true
-                                              )
+                                              val portal = when (carrier.trim().lowercase()) {
+                                                  "post", "österreichische post" -> "https://www.post.at/v2/tnt/sendungssuche"
+                                                  "dhl" -> "https://www.dhl.com/at-de/home/tracking.html"
+                                                  "dpd" -> "https://www.dpd.com/at/de/"
+                                                  "gls" -> "https://gls-group.com/AT/en/parcel-tracking/"
+                                                  "ups" -> "https://www.ups.com/track?loc=de_AT"
+                                                  else -> null
+                                              }
+                                              if (portal != null) {
+                                                  TextButton(
+                                                      onClick = {
+                                                          logEvent("Paketdienst-Portal manuell geöffnet: ${carrier.trim()}")
+                                                          startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(portal)))
+                                                      }
+                                                  ) {
+                                                      Text("OFFIZIELLES PAKETDIENST-PORTAL ÖFFNEN")
+                                                  }
+                                              }
                                           }
                                       }
                                   },
@@ -474,7 +759,106 @@ jobs:
                   }
               }
 
-              private fun writeParcels(items: List<Parcel>): String {
+              private class PdfLabelPrintAdapter(
+              private val source: File,
+              private val log: (String) -> Unit
+          ) : PrintDocumentAdapter() {
+              override fun onLayout(
+                  oldAttributes: PrintAttributes?,
+                  newAttributes: PrintAttributes,
+                  cancellationSignal: CancellationSignal,
+                  callback: LayoutResultCallback,
+                  extras: Bundle?
+              ) {
+                  if (cancellationSignal.isCanceled) {
+                      callback.onLayoutCancelled()
+                      return
+                  }
+                  try {
+                      PdfRenderer(ParcelFileDescriptor.open(source, ParcelFileDescriptor.MODE_READ_ONLY)).use { renderer ->
+                          require(renderer.pageCount == 1) { "Es werden derzeit nur einseitige Versandetiketten unterstützt." }
+                      }
+                      val info = PrintDocumentInfo.Builder("TRAKUNA-100x150.pdf")
+                          .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
+                          .setPageCount(1)
+                          .build()
+                      callback.onLayoutFinished(info, true)
+                  } catch (error: Exception) {
+                      log("Druck-Layoutfehler: ${error.javaClass.simpleName}")
+                      callback.onLayoutFailed("PDF ist ungültig oder enthält nicht genau eine Seite.")
+                  }
+              }
+
+              override fun onFinish() {
+                  // The print framework has finished with the source document.
+                  if (source.exists() && !source.delete()) {
+                      log("Temporäre Etikettendatei konnte nicht gelöscht werden")
+                  }
+                  super.onFinish()
+              }
+
+              override fun onWrite(
+                  pages: Array<out android.print.PageRange>,
+                  destination: ParcelFileDescriptor,
+                  cancellationSignal: CancellationSignal,
+                  callback: WriteResultCallback
+              ) {
+                  if (cancellationSignal.isCanceled) {
+                      callback.onWriteCancelled()
+                      return
+                  }
+                  if (pages.none { it.start <= 0 && it.end >= 0 }) {
+                      callback.onWriteFinished(emptyArray())
+                      return
+                  }
+                  var renderer: PdfRenderer? = null
+                  var sourcePage: PdfRenderer.Page? = null
+                  var bitmap: Bitmap? = null
+                  val output = PdfDocument()
+                  try {
+                      renderer = PdfRenderer(ParcelFileDescriptor.open(source, ParcelFileDescriptor.MODE_READ_ONLY))
+                      require(renderer.pageCount == 1) { "Mehrseitige Etiketten werden nicht unterstützt." }
+                      sourcePage = renderer.openPage(0)
+                      // Render at the target label resolution (300 dpi), not the PDF renderer's
+                      // default page pixel dimensions, to avoid needlessly degrading barcodes.
+                      val targetScale = minOf(1181f / sourcePage.width, 1772f / sourcePage.height)
+                      val targetWidth = maxOf(1, (sourcePage.width * targetScale).toInt())
+                      val targetHeight = maxOf(1, (sourcePage.height * targetScale).toInt())
+                      bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
+                      sourcePage.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_PRINT)
+
+                      val width = 283
+                      val height = 425
+                      val page = output.startPage(PdfDocument.PageInfo.Builder(width, height, 1).create())
+                      page.canvas.drawColor(AndroidColor.WHITE)
+                      val scale = minOf(width.toFloat() / bitmap.width, height.toFloat() / bitmap.height)
+                      val drawWidth = bitmap.width * scale
+                      val drawHeight = bitmap.height * scale
+                      val left = (width - drawWidth) / 2f
+                      val top = (height - drawHeight) / 2f
+                      val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+                      page.canvas.drawBitmap(bitmap, null, RectF(left, top, left + drawWidth, top + drawHeight), paint)
+                      output.finishPage(page)
+                      if (cancellationSignal.isCanceled) {
+                          callback.onWriteCancelled()
+                          return
+                      }
+                      FileOutputStream(destination.fileDescriptor).use { output.writeTo(it) }
+                      callback.onWriteFinished(arrayOf(android.print.PageRange.ALL_PAGES))
+                      log("PDF-Etikett auf 100x150-mm-Seite aufbereitet und an Drucksystem übergeben")
+                  } catch (error: Exception) {
+                      log("Druck-Schreibfehler: ${error.javaClass.simpleName}")
+                      callback.onWriteFailed("Etikett konnte nicht druckfertig aufbereitet werden.")
+                  } finally {
+                      try { sourcePage?.close() } catch (_: Exception) {}
+                      try { renderer?.close() } catch (_: Exception) {}
+                      try { bitmap?.recycle() } catch (_: Exception) {}
+                      try { output.close() } catch (_: Exception) {}
+                  }
+              }
+          }
+
+          private fun writeParcels(items: List<Parcel>): String {
                   val array = JSONArray()
                   items.forEach { p ->
                       array.put(JSONObject().apply {
@@ -484,7 +868,6 @@ jobs:
                           put("customer", p.customer)
                           put("type", p.type)
                           put("status", p.status)
-                          put("pin", p.pin)
                           put("time", p.time)
                       })
                   }
@@ -503,7 +886,6 @@ jobs:
                               o.optString("customer"),
                               o.optString("type"),
                               o.optString("status"),
-                              o.optString("pin"),
                               o.optLong("time")
                           )
                       }
@@ -514,11 +896,108 @@ jobs:
           }
           EOF
 
-      - name: APK bauen
-        run: gradle --no-daemon assembleDebug
+      - name: Tracking-Code-Resolver-Tests bereitstellen
+        shell: bash
+        run: |
+          cat > app/src/test/java/at/trakuna/app/TrackingCodeResolverTest.kt <<'EOF'
+          package at.trakuna.app
+
+          import org.junit.Assert.*
+          import org.junit.Test
+
+          class TrackingCodeResolverTest {
+              @Test fun normalizesScannerPrefixesAndSeparators() {
+                  assertEquals("1012345000000010110106", TrackingCodeResolver.normalize("]C1 10-12345-00000001-01-1010-6"))
+                  assertEquals("123456789012345678", TrackingCodeResolver.normalize("(00) 123456789012345678"))
+                  assertEquals("123456789012345678", TrackingCodeResolver.normalize("]C1 00 123456789012345678"))
+              }
+
+              @Test fun detectsAustrianPostWithValidStructureAndCheckDigit() {
+                  val result = TrackingCodeResolver.detect("1012345000000010110106")
+                  assertEquals("Österreichische Post", result.carrier)
+                  assertTrue(result.isCertain)
+              }
+
+              @Test fun rejectsInvalidAustrianPostCheckDigit() {
+                  val result = TrackingCodeResolver.detect("1012345000000010110107")
+                  assertFalse(result.isCertain)
+                  assertNull(result.carrier)
+              }
+
+              @Test fun treatsUpsOneZFormatOnlyAsUnconfirmedCandidate() {
+                  val result = TrackingCodeResolver.detect("1Z9999999999999999")
+                  assertEquals("UPS", result.carrier)
+                  assertFalse(result.isCertain)
+                  assertTrue(result.message.contains("bestätigt den Paketdienst nicht"))
+              }
+
+              @Test fun rejectsMalformedUpsOneZFormat() {
+                  val result = TrackingCodeResolver.detect("1ZABCDEFGHIJKLMNOQ")
+                  assertNull(result.carrier)
+                  assertFalse(result.isCertain)
+              }
+
+              @Test fun treatsFourteenDigitsAsUnconfirmedDpdCandidate() {
+                  val result = TrackingCodeResolver.detect("01234567890123")
+                  assertEquals("DPD", result.carrier)
+                  assertFalse(result.isCertain)
+              }
+
+              @Test fun treatsGlsFormatsAsUnconfirmedCandidates() {
+                  assertEquals("GLS", TrackingCodeResolver.detect("P3L11002").carrier)
+                  assertFalse(TrackingCodeResolver.detect("P3L11002").isCertain)
+                  assertEquals("GLS", TrackingCodeResolver.detect("206200100109").carrier)
+                  assertFalse(TrackingCodeResolver.detect("206200100109").isCertain)
+              }
+
+              @Test fun doesNotTreatSsccAsCarrier() {
+                  val result = TrackingCodeResolver.detect("(00)123456789012345678")
+                  assertNull(result.carrier)
+                  assertFalse(result.isCertain)
+                  assertTrue(result.message.contains("SSCC"))
+              }
+
+              @Test fun matchesCodesAfterSafeNormalization() {
+                  assertEquals(listOf(0), TrackingCodeResolver.matchingIndices(listOf("10-ABC 123", "OTHER"), "10ABC123"))
+              }
+
+              @Test fun reportsMultipleNormalizedMatchesInsteadOfChoosingOne() {
+                  assertEquals(listOf(0, 1), TrackingCodeResolver.matchingIndices(listOf("10-ABC", "10 ABC"), "10ABC"))
+              }
+
+              @Test fun leavesUnknownCodesUnassigned() {
+                  val result = TrackingCodeResolver.detect("ABC-123-XYZ")
+                  assertNull(result.carrier)
+                  assertFalse(result.isCertain)
+              }
+          }
+          EOF
+
+      - name: Gradle einrichten
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.9'
+          cache-provider: basic
+
+      - name: Resolver-Tests und APK bauen
+        run: gradle --no-daemon testDebugUnitTest assembleDebug
+
+      - name: APK prüfen
+        shell: bash
+        run: |
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          test "$(apkanalyzer manifest application-id "$APK")" = "at.trakuna.app"
+          test "$(apkanalyzer manifest version-name "$APK")" = "2.0"
+          test "$(apkanalyzer manifest version-code "$APK")" = "2"
+          test "$(apkanalyzer manifest min-sdk "$APK")" = "24"
+          test "$(apkanalyzer manifest target-sdk "$APK")" = "34"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --verbose "$APK"
 
       - name: APK bereitstellen
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: TRAKUNA-2.0-Android
           path: app/build/outputs/apk/debug/app-debug.apk
