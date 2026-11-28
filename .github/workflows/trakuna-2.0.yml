@@ -235,8 +235,11 @@ jobs:
                       return CarrierDetection("Österreichische Post", true,
                           "Österreichische Post erkannt: 22-stelliger IdentCode mit gültiger Prüfziffer.")
                   }
-                  if (code.matches(Regex("1Z[A-Z0-9]{16}"))) {
-                      return CarrierDetection("UPS", true, "UPS erkannt: Trackingnummer im 1Z-Format.")
+                  // A 1Z-shaped value is only a format hint. Without a trusted carrier
+                  // lookup it must never be treated as a 100% carrier assignment.
+                  if (code.matches(Regex("1Z[A-Z0-9]{6}[0-9]{2}[0-9]{8}"))) {
+                      return CarrierDetection("UPS", false,
+                          "Mögliches UPS-1Z-Format. Die Formatprüfung allein bestätigt den Paketdienst nicht; bitte manuell prüfen.")
                   }
                   if (code.matches(Regex("[0-9]{18}"))) {
                       return CarrierDetection(null, false,
@@ -906,10 +909,17 @@ jobs:
                   assertNull(result.carrier)
               }
 
-              @Test fun detectsUpsOneZFormat() {
+              @Test fun treatsUpsOneZFormatOnlyAsUnconfirmedCandidate() {
                   val result = TrackingCodeResolver.detect("1Z9999999999999999")
                   assertEquals("UPS", result.carrier)
-                  assertTrue(result.isCertain)
+                  assertFalse(result.isCertain)
+                  assertTrue(result.message.contains("bestätigt den Paketdienst nicht"))
+              }
+
+              @Test fun rejectsMalformedUpsOneZFormat() {
+                  val result = TrackingCodeResolver.detect("1ZABCDEFGHIJKLMNOQ")
+                  assertNull(result.carrier)
+                  assertFalse(result.isCertain)
               }
 
               @Test fun treatsFourteenDigitsAsUnconfirmedDpdCandidate() {
