@@ -240,7 +240,7 @@ jobs:
                       val entry = "$timestamp | Nicht abgefangener App-Fehler: ${error.javaClass.simpleName}; $trace"
                       val entries = (previous.lines().filter { it.isNotBlank() } + entry).takeLast(200)
                       // Commit synchronously: the process may terminate immediately after this handler.
-                      prefs.edit().putString("events", entries.joinToString("\\n")).commit()
+                      prefs.edit().putString("events", entries.joinToString("\n")).commit()
                   } catch (_: Exception) {
                       // Never prevent Android's original crash handler from running.
                   }
