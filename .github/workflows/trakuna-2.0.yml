@@ -209,8 +209,15 @@ jobs:
 
               fun normalize(raw: String): String {
                   var value = raw.trim().uppercase(Locale.ROOT)
-                  if (value.startsWith("]C1")) value = value.removePrefix("]C1")
-                  if (value.startsWith("(00)")) value = value.removePrefix("(00)")
+                  val gs1Data = value.startsWith("]C1")
+                  if (gs1Data) value = value.removePrefix("]C1").trimStart()
+                  if (value.startsWith("(00)")) {
+                      value = value.removePrefix("(00)")
+                  } else if (gs1Data && value.startsWith("00") &&
+                      value.length == 20 && value.drop(2).matches(Regex("[0-9]{18}"))) {
+                      // GS1 AI (00) follows the ]C1 symbology identifier.
+                      value = value.drop(2)
+                  }
                   return value.filterNot { it.isWhitespace() || it == '-' }
               }
 
@@ -883,6 +890,7 @@ jobs:
               @Test fun normalizesScannerPrefixesAndSeparators() {
                   assertEquals("1012345000000010110106", TrackingCodeResolver.normalize("]C1 10-12345-00000001-01-1010-6"))
                   assertEquals("123456789012345678", TrackingCodeResolver.normalize("(00) 123456789012345678"))
+                  assertEquals("123456789012345678", TrackingCodeResolver.normalize("]C100123456789012345678"))
               }
 
               @Test fun detectsAustrianPostWithValidStructureAndCheckDigit() {
