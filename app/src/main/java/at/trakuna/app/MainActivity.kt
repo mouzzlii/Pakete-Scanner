@@ -338,6 +338,8 @@ class MainActivity : ComponentActivity() {
                         onTestBluetooth = { device -> testBluetoothSpp(device) }
                     )
                     Spacer(Modifier.height(18.dp))
+                    DiagnosticLogSection()
+                    Spacer(Modifier.height(18.dp))
                     Text(
                         "Browser-Modus: Anbieterportal im externen Browser. TRAKUNA speichert keine Passwörter und führt keine Buchung, Labelbestellung oder Druckaktion aus.",
                         fontSize = 12.sp,
