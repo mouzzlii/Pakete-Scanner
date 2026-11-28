@@ -40,11 +40,11 @@ internal object CarrierRegistry {
         if (number.length !in 5..60 || number.any { it.isISOControl() }) return null
         val encoded = URLEncoder.encode(number, StandardCharsets.UTF_8.name()).replace("+", "%20")
         return when (id) {
-            "dpd" -> "https://tracking.dpd.de/status/de_AT/parcel/$encoded"
+            "dpd" -> "https://tracking.dpd.de/parcelstatus?locale=de_AT&query=$encoded"
             "gls" -> "https://gls-group.com/AT/de/paket-verfolgen/?match=$encoded"
             "ups" -> "https://www.ups.com/track?loc=de_AT&tracknum=$encoded&requester=WT%2Ftrackdetails"
             "dhl" -> "https://www.dhl.com/at-de/home/tracking.html?submit=1&tracking-id=$encoded"
-            "at-post" -> "https://www.post.at/s/sendungssuche?snr=$encoded"
+            "at-post" -> "https://www.post.at/v2/tnt/sendungssuche?snr=$encoded"
             // Hermes Austria has no verified public deep-link parameter. Use
             // the official form and copy the number rather than guessing a URL.
             else -> null

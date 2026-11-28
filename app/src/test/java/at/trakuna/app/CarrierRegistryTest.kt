@@ -25,11 +25,11 @@ class CarrierRegistryTest {
     }
 
     @Test fun trackingLinksCarryTheNumberToTheOfficialProviderEndpoint() {
-        assertTrue(CarrierRegistry.trackingUrl("dpd", "01234567890123")!!.endsWith("/01234567890123"))
+        assertTrue(CarrierRegistry.trackingUrl("dpd", "01234567890123")!!.contains("locale=de_AT&query=01234567890123"))
         assertTrue(CarrierRegistry.trackingUrl("gls", "123456789")!!.contains("match=123456789"))
         assertTrue(CarrierRegistry.trackingUrl("ups", "1Z999AA10123456784")!!.contains("tracknum=1Z999AA10123456784"))
         assertTrue(CarrierRegistry.trackingUrl("dhl", "JD014600006281234567")!!.contains("tracking-id=JD014600006281234567"))
-        assertTrue(CarrierRegistry.trackingUrl("at-post", "RR123456789AT")!!.contains("snr=RR123456789AT"))
+        assertTrue(CarrierRegistry.trackingUrl("at-post", "RR123456789AT")!!.contains("/v2/tnt/sendungssuche?snr=RR123456789AT"))
     }
 
     @Test fun hermesUsesSafeClipboardFallbackInsteadOfInventedDeepLink() {
