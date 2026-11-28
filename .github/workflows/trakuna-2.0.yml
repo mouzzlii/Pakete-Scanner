@@ -332,6 +332,9 @@ jobs:
                   var search by remember { mutableStateOf("") }
                   var scanFormat by remember { mutableStateOf<Int?>(null) }
                   val codeDetection = TrackingCodeResolver.detect(code)
+                  val pickupMatches = parcels.filter {
+                      TrackingCodeResolver.normalize(it.code) == TrackingCodeResolver.normalize(code)
+                  }
 
                   val pdfPicker = rememberLauncherForActivityResult(
                       contract = ActivityResultContracts.OpenDocument()
@@ -616,14 +619,30 @@ jobs:
                                       Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                           OutlinedTextField(
                                               value = code,
-                                              onValueChange = { code = it },
+                                              onValueChange = { value ->
+                                                   code = value
+                                                   val detection = TrackingCodeResolver.detect(value)
+                                                   if (detection.isCertain) carrier = detection.carrier ?: carrier
+                                               },
                                               label = {
                                                   Text("Sendungsnummer / Barcode")
                                               },
                                               singleLine = true,
                                               keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
                                           )
-                                          if (formType != "Abholung") {
+                                          if (formType == "Abholung" && code.isNotBlank()) {
+                                               when (pickupMatches.size) {
+                                                   0 -> Text("Keine Sendung mit diesem Code gefunden.", color = Forest)
+                                                   1 -> {
+                                                       val parcel = pickupMatches.single()
+                                                       Text("Gefundene Sendung: ${parcel.carrier}", fontWeight = FontWeight.Bold, color = Forest)
+                                                       if (parcel.customer.isNotBlank()) Text("Kunde: ${parcel.customer}")
+                                                       Text("Vorgang: ${parcel.type} • Status: ${parcel.status}")
+                                                   }
+                                                   else -> Text("${pickupMatches.size} Sendungen mit diesem Code gefunden. Bitte keine automatische Abholung durchführen.", color = Forest)
+                                               }
+                                           }
+                                           if (formType != "Abholung") {
                                               if (scanFormat != null) {
                                                    Text("Scannerformat: $scanFormat", fontSize = 12.sp, color = Color.Gray)
                                                }
