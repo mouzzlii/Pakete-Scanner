@@ -618,6 +618,14 @@ jobs:
                   }
               }
 
+              override fun onFinish() {
+                  // The print framework has finished with the source document.
+                  if (source.exists() && !source.delete()) {
+                      log("Temporäre Etikettendatei konnte nicht gelöscht werden")
+                  }
+                  super.onFinish()
+              }
+
               override fun onWrite(
                   pages: Array<out android.print.PageRange>,
                   destination: ParcelFileDescriptor,
