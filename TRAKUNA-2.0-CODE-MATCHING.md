@@ -20,7 +20,7 @@
 | Regel | Verhalten | Begründung |
 |---|---|---|
 | Österreichische Post | Automatische Vorbelegung nur bei 22 Ziffern, Partnerkennung `10`, bekanntem Produkt-Prozess-Kennzeichen und gültiger 3/1-Modulo-10-Prüfziffer | Offizielle Post-Spezifikation, Version 6.2 |
-| UPS | Automatische Vorbelegung bei `1Z` plus 16 alphanumerischen Zeichen | Offizielle UPS-Trackinghilfe dokumentiert dieses 18-stellige Format |
+| UPS | `1Z` plus strukturell passende 16 Zeichen wird nur als möglicher UPS-Kandidat angezeigt; manuelle Bestätigung bleibt erforderlich | Ein Formatmuster allein beweist keine 100%ige Carrier-Zuordnung und bestätigt keine tatsächlich ausgegebene Sendungsnummer |
 | DPD | 14 Ziffern werden nur als möglicher DPD-Kandidat angezeigt; manuelle Bestätigung bleibt erforderlich | DPD Österreich nennt 14-stellige Paketnummern; die Länge allein ist kein eindeutiger Identitätsbeweis |
 | DHL | Keine automatische Zuordnung | DHL beschreibt Tracking-IDs als Zahlen-/Buchstabenkombinationen und mehrere Geschäftsbereiche; kein universelles Muster für diese App verifiziert |
 | GLS | 8 alphanumerische Zeichen oder 11/12 Ziffern werden nur als Kandidat angezeigt; manuelle Bestätigung bleibt erforderlich | GLS ShipIT dokumentiert TrackID mit 8 alphanumerischen Zeichen sowie ParcelNumber mit 11 oder 12 Ziffern. Diese Muster können auch mit anderen Nummern kollidieren |
@@ -41,8 +41,8 @@
 ## Tests und offene Verifikation
 
 - 12 eigenständige Kotlin-Assertions für Normalisierung, Post-Prüfziffer, UPS-Format, DPD-Kandidat, SSCC und unbekannte Codes lokal mit `kotlinc` ausgeführt: **bestanden**.
-- 10 JUnit-Tests sind im Android-Buildworkflow ergänzt und werden dort über `testDebugUnitTest` aufgerufen.
-- Der App-Code-Commit `f14d00dfe3e4af8325f93420bc9c85ec88e44cb1` wurde in GitHub Actions mit Run #215 erfolgreich gebaut. Der Job führte `testDebugUnitTest assembleDebug` aus; APK-Prüfung, Signaturprüfung und Artefakt-Upload waren ebenfalls erfolgreich.
+- 11 JUnit-Tests sind im Android-Buildworkflow ergänzt und werden dort über `testDebugUnitTest` aufgerufen.
+- Der App-Code-Commit `f14d00dfe3e4af8325f93420bc9c85ec88e44cb1` wurde in GitHub Actions mit Run #215 erfolgreich gebaut. Der Job führte `testDebugUnitTest assembleDebug` aus; APK-Prüfung, Signaturprüfung und Artefakt-Upload waren ebenfalls erfolgreich. Die nachfolgende UPS-Härtung ist ein neuer Commit und benötigt noch einen eigenen erfolgreichen CI-Nachweis.
 - Die 10 JUnit-Tests liefen im erfolgreichen CI-Job mit. Das bestätigt die automatisierten Resolver-Tests, nicht die Erkennung echter Paketetiketten.
 - Installation auf einem realen Android-Gerät, Kameratests und Druckertests sind noch nicht bestätigt.
 - Der Scan- und Zuordnungsablauf muss mit echten, anonymisierten Testetiketten der fünf tatsächlich eingesetzten Paketdienste geprüft werden.
@@ -61,4 +61,5 @@
 - Kein Merge nach `main`.
 - Keine Produktionsbereitstellung, keine externen Carrier-APIs und keine automatische Datenübertragung.
 - Keine automatische Abholung bei mehrdeutigen Treffern.
+- Keine automatische Paketdienst-Zuordnung allein aufgrund eines UPS-Formatmusters; kein automatisches Öffnen eines Paketdienst-Portals.
 - Keine erfundenen Carrier-Muster.
