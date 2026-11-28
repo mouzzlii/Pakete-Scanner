@@ -157,7 +157,6 @@ jobs:
           import android.os.CancellationSignal
           import android.os.ParcelFileDescriptor
           import android.graphics.Bitmap
-          import android.graphics.Canvas
           import android.graphics.Color as AndroidColor
           import android.graphics.Paint
           import android.graphics.RectF
@@ -641,7 +640,12 @@ jobs:
                       renderer = PdfRenderer(ParcelFileDescriptor.open(source, ParcelFileDescriptor.MODE_READ_ONLY))
                       require(renderer.pageCount == 1) { "Mehrseitige Etiketten werden nicht unterstützt." }
                       sourcePage = renderer.openPage(0)
-                      bitmap = Bitmap.createBitmap(sourcePage.width, sourcePage.height, Bitmap.Config.ARGB_8888)
+                      // Render at the target label resolution (300 dpi), not the PDF renderer's
+                      // default page pixel dimensions, to avoid needlessly degrading barcodes.
+                      val targetScale = minOf(1181f / sourcePage.width, 1772f / sourcePage.height)
+                      val targetWidth = maxOf(1, (sourcePage.width * targetScale).toInt())
+                      val targetHeight = maxOf(1, (sourcePage.height * targetScale).toInt())
+                      bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
                       sourcePage.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_PRINT)
 
                       val width = 283
