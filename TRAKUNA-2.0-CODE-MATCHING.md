@@ -23,7 +23,7 @@
 | UPS | Automatische Vorbelegung bei `1Z` plus 16 alphanumerischen Zeichen | Offizielle UPS-Trackinghilfe dokumentiert dieses 18-stellige Format |
 | DPD | 14 Ziffern werden nur als möglicher DPD-Kandidat angezeigt; manuelle Bestätigung bleibt erforderlich | DPD Österreich nennt 14-stellige Paketnummern; die Länge allein ist kein eindeutiger Identitätsbeweis |
 | DHL | Keine automatische Zuordnung | DHL beschreibt Tracking-IDs als Zahlen-/Buchstabenkombinationen und mehrere Geschäftsbereiche; kein universelles Muster für diese App verifiziert |
-| GLS | Keine automatische Zuordnung | Kein ausreichend belastbares, universelles Format für die hier unterstützte App verifiziert |
+| GLS | 8 alphanumerische Zeichen oder 11/12 Ziffern werden nur als Kandidat angezeigt; manuelle Bestätigung bleibt erforderlich | GLS ShipIT dokumentiert TrackID mit 8 alphanumerischen Zeichen sowie ParcelNumber mit 11 oder 12 Ziffern. Diese Muster können auch mit anderen Nummern kollidieren |
 | GS1 SSCC | Wird als 18-stellige Logistikeinheiten-ID erkannt, aber keinem Paketdienst zugeordnet | SSCC identifiziert eine Logistikeinheit, nicht den Carrier |
 
 **Wichtig:** Eine Format-Erkennung bestätigt nicht, dass eine Sendung tatsächlich existiert oder beim jeweiligen Dienst aktiv ist. Unbekannte und unsichere Codes bleiben unzugeordnet. DHL und GLS bleiben in der festen Auswahlliste verfügbar.
@@ -40,8 +40,8 @@
 
 ## Tests und offene Verifikation
 
-- 10 eigenständige Kotlin-Assertions für Normalisierung, Post-Prüfziffer, UPS-Format, DPD-Kandidat, SSCC und unbekannte Codes lokal mit `kotlinc` ausgeführt: **bestanden**.
-- 9 JUnit-Tests sind im Android-Buildworkflow ergänzt und werden dort über `testDebugUnitTest` aufgerufen.
+- 12 eigenständige Kotlin-Assertions für Normalisierung, Post-Prüfziffer, UPS-Format, DPD-Kandidat, SSCC und unbekannte Codes lokal mit `kotlinc` ausgeführt: **bestanden**.
+- 10 JUnit-Tests sind im Android-Buildworkflow ergänzt und werden dort über `testDebugUnitTest` aufgerufen.
 - Für den aktuellen Branch-Head liegt noch kein bestätigter GitHub-Actions-Lauf vor.
 - Android-/Compose-Gesamtbuild, Installation auf einem realen Android-Gerät und Kameratests sind noch nicht bestätigt.
 - Der Scan- und Zuordnungsablauf muss mit echten, anonymisierten Testetiketten der fünf tatsächlich eingesetzten Paketdienste geprüft werden.
@@ -50,6 +50,7 @@
 
 - Österreichische Post, *Belabelungs- und Avisodatenfibel*, Version 6.2 (Juni 2025), Kapitel 4.1 und 4.3: https://assets.post.at/-/media/Dokumente/De/Geschaeftlich/Versenden/Paket/Belabelungs-und-Avisodatenfibel-V6-2.pdf
 - DPD Österreich, Support – Paketnummer: https://www.dpd.com/at/en/support/
+- GLS ShipIT, Tracking REST API – TrackID/ParcelNumber-Felder: https://shipit.gls-group.com/documentation/webservices/5_2_5/WS-REST-API/rest_tracking.html
 - UPS, Tracking Support – Beispiele für Trackingnummern: https://www.ups.com/us/en/support/tracking-support
 - DHL Österreich, Sendungsverfolgung – allgemeine Tracking-ID-Erklärung: https://www.dhl.com/at-de/home/tracking.html
 - GS1 Austria, SSCC-Identifikation und GS1-Logistiklabel: https://www.gs1.at/
