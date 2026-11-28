@@ -98,6 +98,7 @@ class MainActivity : ComponentActivity() {
         var printerPort by remember { mutableStateOf("631") }
         var printerStatus by remember { mutableStateOf("Noch keine Druckerverbindung hergestellt.") }
         var printerConnected by remember { mutableStateOf(false) }
+        var printerConnectionAttempt by remember { mutableIntStateOf(0) }
         var pairedPrinters by remember { mutableStateOf(listOf<Pair<BluetoothDevice, String>>()) }
         val coroutineScope = rememberCoroutineScope()
 
@@ -143,6 +144,7 @@ class MainActivity : ComponentActivity() {
                 return
             }
             val endpoint = (validation as TcpEndpointValidation.Valid).endpoint
+            val attempt = ++printerConnectionAttempt
             try { activePrinterConnection?.close() } catch (_: Exception) {}
             activePrinterConnection = null
             printerConnected = false
@@ -168,6 +170,10 @@ class MainActivity : ComponentActivity() {
                         "Netzwerk-Endpunkt nicht erreichbar: ${e.message ?: "Verbindung fehlgeschlagen"}"
                     }
                 }
+                if (attempt != printerConnectionAttempt) {
+                    if (result is Socket) try { result.close() } catch (_: Exception) {}
+                    return@launch
+                }
                 if (result is Socket) {
                     activePrinterConnection = result
                     printerConnected = true
@@ -186,6 +192,7 @@ class MainActivity : ComponentActivity() {
                 bluetoothPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
                 return
             }
+            val attempt = ++printerConnectionAttempt
             try { activePrinterConnection?.close() } catch (_: Exception) {}
             activePrinterConnection = null
             printerConnected = false
@@ -198,6 +205,10 @@ class MainActivity : ComponentActivity() {
                     } ?: BluetoothConnectResult(null, "SPP-Verbindung nach 12 Sekunden abgebrochen. Gerät und Profil prüfen.")
                 } catch (_: SecurityException) {
                     BluetoothConnectResult(null, "Bluetooth-Zugriff verweigert. Berechtigung erneut prüfen.")
+                }
+                if (attempt != printerConnectionAttempt) {
+                    try { result.socket?.close() } catch (_: Exception) {}
+                    return@launch
                 }
                 activePrinterConnection = result.socket
                 printerConnected = result.socket != null
@@ -357,6 +368,7 @@ class MainActivity : ComponentActivity() {
                         onTestBluetooth = { device -> connectBluetoothSppToDevice(device) },
                         isConnected = printerConnected,
                         onDisconnect = {
+                            printerConnectionAttempt++
                             try { activePrinterConnection?.close() } catch (_: Exception) {}
                             activePrinterConnection = null
                             printerConnected = false
