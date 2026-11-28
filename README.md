@@ -41,7 +41,7 @@ Diese Muster decken nicht alle nationalen und internationalen Sendungsnummern ab
 
 Vor dem TCP-Verbindungsversuch prüft TRAKUNA die manuelle Host-/Port-Eingabe. Unterstützt werden Hostnamen sowie IPv4- und IPv6-Adressen. URL-Schemata, Pfade, ungültige Zeichen und Ports außerhalb von 1 bis 65535 werden abgewiesen. Die Prüfung selbst stellt noch keine Verbindung her.
 
-Die Netzwerkprüfung läuft außerhalb des UI-Threads und verwendet ein Verbindungszeitlimit von drei Sekunden. Aus Sicherheitsgründen werden ausschließlich lokale/private Zieladressen zugelassen; öffentliche IP-Adressen und Hostnamen, die auf öffentliche Adressen zeigen, werden abgewiesen. Die bereits geprüfte IP-Adresse wird direkt verbunden, damit keine zweite DNS-Auflösung dazwischenfunkt. Ein erfolgreicher TCP-Verbindungsaufbau bestätigt ausschließlich die Erreichbarkeit dieses Endpunkts – nicht IPP, IPPS oder die Druckbereitschaft des Geräts.
+Die Netzwerkprüfung läuft außerhalb des UI-Threads und verwendet ein Verbindungszeitlimit von fünf Sekunden. Aus Sicherheitsgründen werden ausschließlich lokale/private Zieladressen zugelassen; öffentliche IP-Adressen und Hostnamen, die auf öffentliche Adressen zeigen, werden abgewiesen. Die bereits geprüfte IP-Adresse wird direkt verbunden, damit keine zweite DNS-Auflösung dazwischenfunkt. Ein erfolgreicher TCP-Verbindungsaufbau bestätigt ausschließlich die Erreichbarkeit dieses Endpunkts – nicht IPP, IPPS oder die Druckbereitschaft des Geräts.
 
 ## Drucker – aktueller Umfang
 
