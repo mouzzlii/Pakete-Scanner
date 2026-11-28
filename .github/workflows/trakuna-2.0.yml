@@ -567,7 +567,9 @@ jobs:
           test "$(apkanalyzer manifest version-code "$APK")" = "2"
           test "$(apkanalyzer manifest min-sdk "$APK")" = "24"
           test "$(apkanalyzer manifest target-sdk "$APK")" = "34"
-          apksigner verify --verbose "$APK"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --verbose "$APK"
 
       - name: APK bereitstellen
         uses: actions/upload-artifact@v6
