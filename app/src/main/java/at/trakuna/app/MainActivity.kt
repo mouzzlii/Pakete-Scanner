@@ -38,13 +38,17 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.UUID
+import java.io.Closeable
 
 private val Forest = Color(0xFF174D39)
 private val Pale = Color(0xFFF1F5F2)
 
-private suspend fun connectBluetoothSpp(context: Context, device: BluetoothDevice): String {
-    if (context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-        return "Bluetooth-Zugriff nicht freigegeben. Bitte Berechtigung erteilen und erneut versuchen."
+private data class BluetoothConnectResult(val socket: BluetoothSocket?, val message: String)
+
+private suspend fun connectBluetoothSpp(context: Context, device: BluetoothDevice): BluetoothConnectResult {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+        context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+        return BluetoothConnectResult(null, "Bluetooth-Zugriff nicht freigegeben. Bitte Berechtigung erteilen und erneut versuchen.")
     }
     return suspendCancellableCoroutine { continuation ->
         val socket = try {
@@ -52,29 +56,33 @@ private suspend fun connectBluetoothSpp(context: Context, device: BluetoothDevic
                 UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
             )
         } catch (_: Exception) {
-            continuation.resume("SPP-Verbindung fehlgeschlagen: Profil nicht unterstützt oder Gerät nicht erreichbar.")
+            continuation.resume(BluetoothConnectResult(null, "SPP-Verbindung fehlgeschlagen: Profil nicht unterstützt oder Gerät nicht erreichbar."))
             return@suspendCancellableCoroutine
         }
-
-        continuation.invokeOnCancellation {
-            try { socket.close() } catch (_: Exception) {}
-        }
-
+        continuation.invokeOnCancellation { try { socket.close() } catch (_: Exception) {} }
         Thread({
             val result = try {
                 socket.connect()
-                "Bluetooth-SPP-Verbindung erfolgreich. Es wurden keine Druckdaten gesendet."
+                BluetoothConnectResult(socket, "Bluetooth-SPP verbunden. Die Verbindung bleibt bis zum Trennen geöffnet; es wurden keine Druckdaten gesendet.")
             } catch (_: Exception) {
-                "SPP-Verbindung fehlgeschlagen: Profil nicht unterstützt oder Gerät nicht erreichbar."
-            } finally {
                 try { socket.close() } catch (_: Exception) {}
+                BluetoothConnectResult(null, "SPP-Verbindung fehlgeschlagen: Profil nicht unterstützt oder Gerät nicht erreichbar.")
             }
             if (continuation.isActive) continuation.resume(result)
+            else try { result.socket?.close() } catch (_: Exception) {}
         }, "trakuna-bluetooth-spp").start()
     }
 }
 
 class MainActivity : ComponentActivity() {
+    private var activePrinterConnection: Closeable? = null
+
+    override fun onDestroy() {
+        try { activePrinterConnection?.close() } catch (_: Exception) {}
+        activePrinterConnection = null
+        super.onDestroy()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent { TrakunaApp() }
@@ -88,7 +96,8 @@ class MainActivity : ComponentActivity() {
         var detected by remember { mutableStateOf(false) }
         var printerHost by remember { mutableStateOf("") }
         var printerPort by remember { mutableStateOf("631") }
-        var printerStatus by remember { mutableStateOf("Noch kein Verbindungstest durchgeführt.") }
+        var printerStatus by remember { mutableStateOf("Noch keine Druckerverbindung hergestellt.") }
+        var printerConnected by remember { mutableStateOf(false) }
         var pairedPrinters by remember { mutableStateOf(listOf<Pair<BluetoothDevice, String>>()) }
         val coroutineScope = rememberCoroutineScope()
 
@@ -126,7 +135,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        fun testWifiEndpoint() {
+        fun connectWifiEndpoint() {
             val validation = TcpEndpointValidator.parse(printerHost, printerPort)
             if (validation is TcpEndpointValidation.Invalid) {
                 printerStatus = validation.reason
@@ -134,7 +143,10 @@ class MainActivity : ComponentActivity() {
                 return
             }
             val endpoint = (validation as TcpEndpointValidation.Valid).endpoint
-            printerStatus = "Prüfe Netzwerk-Endpunkt …"
+            try { activePrinterConnection?.close() } catch (_: Exception) {}
+            activePrinterConnection = null
+            printerConnected = false
+            printerStatus = "Verbinde mit Netzwerk-Drucker …"
             DiagnosticLog.record(this@MainActivity, "INFO", "Drucker-Netzwerk", "Netzwerk-Verbindungstest gestartet.")
             coroutineScope.launch {
                 val result = withContext(Dispatchers.IO) {
@@ -144,23 +156,31 @@ class MainActivity : ComponentActivity() {
                             return@withContext "Aus Sicherheitsgründen sind nur lokale/private Netzwerkadressen als Druckerziel erlaubt."
                         }
                         // Connect to the already-validated address; do not resolve the hostname again.
-                        Socket().use { socket ->
-                            socket.connect(InetSocketAddress(resolved.first(), endpoint.port), 3000)
+                        val socket = Socket()
+                        try {
+                            socket.connect(InetSocketAddress(resolved.first(), endpoint.port), 5000)
+                            socket
+                        } catch (e: Exception) {
+                            try { socket.close() } catch (_: Exception) {}
+                            throw e
                         }
-                        "Lokaler TCP-Endpunkt ${endpoint.host}:${endpoint.port} ist erreichbar. IPP-/Druckerfähigkeit wurde damit noch nicht bestätigt."
                     } catch (e: Exception) {
                         "Netzwerk-Endpunkt nicht erreichbar: ${e.message ?: "Verbindung fehlgeschlagen"}"
                     }
                 }
-                printerStatus = result
-                val failed = result.contains("nicht erreichbar", true) ||
-                    result.contains("fehlgeschlagen", true) ||
-                    result.contains("Aus Sicherheitsgründen", true)
-                DiagnosticLog.record(this@MainActivity, if (failed) "WARN" else "INFO", "Drucker-Netzwerk", result)
+                if (result is Socket) {
+                    activePrinterConnection = result
+                    printerConnected = true
+                    printerStatus = "Mit ${endpoint.host}:${endpoint.port} verbunden. TCP-Verbindung bleibt geöffnet. Druckerprotokoll und Druckbereitschaft sind noch nicht geprüft."
+                } else {
+                    printerConnected = false
+                    printerStatus = result as String
+                }
+                DiagnosticLog.record(this@MainActivity, if (printerConnected) "INFO" else "WARN", "Drucker-Netzwerk", printerStatus)
             }
         }
 
-        fun testBluetoothSpp(device: BluetoothDevice) {
+        fun connectBluetoothSppToDevice(device: BluetoothDevice) {
             if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     bluetoothPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
@@ -169,21 +189,23 @@ class MainActivity : ComponentActivity() {
                 }
                 return
             }
-            printerStatus = "Prüfe Bluetooth-SPP-Verbindung …"
-            DiagnosticLog.record(this@MainActivity, "INFO", "Drucker-Bluetooth", "Bluetooth-SPP-Verbindungstest gestartet.")
+            try { activePrinterConnection?.close() } catch (_: Exception) {}
+            activePrinterConnection = null
+            printerConnected = false
+            printerStatus = "Verbinde per Bluetooth-SPP …"
+            DiagnosticLog.record(this@MainActivity, "INFO", "Drucker-Bluetooth", "Bluetooth-SPP-Verbindungsaufbau gestartet.")
             coroutineScope.launch {
                 val result = try {
                     withTimeoutOrNull(12_000) {
                         connectBluetoothSpp(this@MainActivity, device)
-                    } ?: "SPP-Verbindung nach 12 Sekunden abgebrochen. Gerät und Profil prüfen."
+                    } ?: BluetoothConnectResult(null, "SPP-Verbindung nach 12 Sekunden abgebrochen. Gerät und Profil prüfen.")
                 } catch (_: SecurityException) {
-                    "Bluetooth-Zugriff verweigert. Berechtigung erneut prüfen."
+                    BluetoothConnectResult(null, "Bluetooth-Zugriff verweigert. Berechtigung erneut prüfen.")
                 }
-                printerStatus = result
-                val failed = result.contains("fehlgeschlagen", true) ||
-                    result.contains("abgebrochen", true) ||
-                    result.contains("verweigert", true)
-                DiagnosticLog.record(this@MainActivity, if (failed) "WARN" else "INFO", "Drucker-Bluetooth", result)
+                activePrinterConnection = result.socket
+                printerConnected = result.socket != null
+                printerStatus = result.message
+                DiagnosticLog.record(this@MainActivity, if (printerConnected) "INFO" else "WARN", "Drucker-Bluetooth", result.message)
             }
         }
 
@@ -333,9 +355,17 @@ class MainActivity : ComponentActivity() {
                         pairedPrinters = pairedPrinters,
                         onHostChange = { printerHost = it },
                         onPortChange = { printerPort = it.filter(Char::isDigit).take(5) },
-                        onTestNetwork = { testWifiEndpoint() },
+                        onTestNetwork = { connectWifiEndpoint() },
                         onLoadBluetooth = { loadPairedPrinters() },
-                        onTestBluetooth = { device -> testBluetoothSpp(device) }
+                        onTestBluetooth = { device -> connectBluetoothSppToDevice(device) },
+                        isConnected = printerConnected,
+                        onDisconnect = {
+                            try { activePrinterConnection?.close() } catch (_: Exception) {}
+                            activePrinterConnection = null
+                            printerConnected = false
+                            printerStatus = "Druckerverbindung getrennt."
+                            DiagnosticLog.record(this@MainActivity, "INFO", "Drucker", "Druckerverbindung manuell getrennt.")
+                        }
                     )
                     Spacer(Modifier.height(18.dp))
                     DiagnosticLogSection(refreshKey = "$status|$printerStatus")
