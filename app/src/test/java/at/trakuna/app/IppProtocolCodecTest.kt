@@ -68,7 +68,7 @@ class IppProtocolCodecTest {
 
     @Test fun rejectsMalformedTypedValues() {
         assertThrows(IllegalArgumentException::class.java) {
-            IppProtocolCodec.parseResponse(fakeTextResponse(0, 1, listOf(
+            IppProtocolCodec.parseResponse(fakeRawResponse(0, 1, listOf(
                 Triple(0x23, "printer-state", byteArrayOf(0, 1))
             )))
         }
