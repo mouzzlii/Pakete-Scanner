@@ -9,9 +9,18 @@ import java.util.Locale
  * Ambiguous formats deliberately return null and require manual selection.
  */
 internal object CarrierDetector {
+    fun normalize(raw: String): String {
+        var value = raw.trim().uppercase(Locale.ROOT)
+        // Scanner AIM identifiers describe the barcode symbology, not the parcel ID.
+        if (value.startsWith("]C1") || value.startsWith("]C0") || value.startsWith("]d2")) {
+            value = value.drop(3)
+        }
+        return value.replace(Regex("""[\s-]"""), "")
+    }
+
     fun detect(raw: String): String? {
         val value = raw.trim().uppercase(Locale.ROOT)
-        val compact = value.replace(Regex("""[\s-]"""), "")
+        val compact = normalize(value)
         return when {
             value.contains("HERMES") -> "Hermes Geschäftskundenbereich"
             value.contains("GLS") -> "GLS / YourGLS"
@@ -19,14 +28,14 @@ internal object CarrierDetector {
             value.contains("UPS") -> "UPS Business / CampusShip"
             value.contains("DHL") -> "DHL Geschäftskunden"
             value.contains("POST") -> "Österreichische Post / ELLA"
-            // Hermes: nur das vom Nutzer bestätigte 104+19-Format automatisch zuordnen.
+            // Hermes: confirmed Austrian label family 104 + 19 digits.
             Regex("""^104\d{19}$""").matches(compact) -> "Hermes Geschäftskundenbereich"
-            // DPD Österreich: offizielles PIN-Beispiel P + 12 Ziffern.
+            // DPD Austria accepts a P + 12-digit PIN and a 14-digit parcel number.
             Regex("""^P\d{12}$""").matches(compact) -> "DPD Business"
-            // UPS: eindeutiges 1Z-Format. Andere Nummernlängen können kollidieren.
+            Regex("""^\d{14}$""").matches(compact) -> "DPD Business"
+            // UPS: unambiguous 1Z format.
             Regex("""^1Z[A-Z0-9]{16}$""").matches(compact) -> "UPS Business / CampusShip"
-            // DHL, Österreichische Post und nicht eindeutig zuordenbare Formate:
-            // manuelle Anbieterauswahl statt unsicherer automatischer Vermutung.
+            // Generic EAN/S10 and other numeric formats remain ambiguous.
             else -> null
         }
     }

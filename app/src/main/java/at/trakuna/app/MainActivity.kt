@@ -4,6 +4,8 @@ import android.Manifest
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
 import android.content.ActivityNotFoundException
+import android.content.ClipboardManager
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -39,6 +41,7 @@ import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.UUID
 import java.io.Closeable
+import android.widget.Toast
 
 private val Forest = Color(0xFF174D39)
 private val Pale = Color(0xFFF1F5F2)
@@ -263,18 +266,6 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        fun scan() {
-            GmsBarcodeScanning.getClient(this@MainActivity)
-                .startScan()
-                .addOnSuccessListener { result ->
-                    detectCode(result.rawValue.orEmpty())?.let { provider -> openPortal(provider) }
-                }
-                .addOnFailureListener {
-                    status = "Scan nicht möglich. Code kann auch über einen externen Scanner eingegeben werden."
-                    DiagnosticLog.record(this@MainActivity, "WARN", "Scanner", "Kamera-Scan fehlgeschlagen.")
-                }
-        }
-
         fun openPortal(provider: String = selected) {
             val portalUrl = CarrierPortals.all.firstOrNull { it.name == provider }?.url
             if (portalUrl == null) {
@@ -290,6 +281,53 @@ class MainActivity : ComponentActivity() {
                 status = "Kein Browser zum Öffnen des Anbieterportals gefunden."
                 DiagnosticLog.record(this@MainActivity, "ERROR", "Portal", "Kein kompatibler Browser zum Öffnen gefunden.")
             }
+        }
+
+        fun openTracking(provider: String, rawCode: String) {
+            val adapter = CarrierRegistry.byDisplayName(provider)
+            val trackingNumber = CarrierDetector.normalize(rawCode)
+            if (adapter == null || trackingNumber.length !in 5..60) {
+                status = "Anbieter oder Sendungsnummer ist ungültig. Bitte Eingabe prüfen."
+                return
+            }
+            val trackingUrl = CarrierRegistry.trackingUrl(adapter.id, trackingNumber)
+            val targetUrl = trackingUrl ?: CarrierRegistry.trackingPageUrl(adapter.id)
+            if (targetUrl == null) {
+                status = "Für diesen Anbieter ist noch keine Sendungsverfolgungsseite hinterlegt."
+                return
+            }
+            try {
+                if (trackingUrl == null) {
+                    val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("Sendungsnummer", trackingNumber))
+                }
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl)))
+                status = if (trackingUrl != null) {
+                    "Sendungsnummer wurde an die offizielle Sendungsverfolgung von $provider übergeben."
+                } else {
+                    "Offizielle $provider-Sendungsverfolgung geöffnet. Die Sendungsnummer wurde kopiert; bitte in das Suchfeld einfügen."
+                }
+                if (trackingUrl == null) {
+                    Toast.makeText(this@MainActivity, "Sendungsnummer kopiert – im Suchfeld einfügen.", Toast.LENGTH_LONG).show()
+                }
+                DiagnosticLog.record(this@MainActivity, "INFO", "Sendungsverfolgung", "Offizielle Anbieterseite geöffnet; Sendungsnummer nicht protokolliert.")
+            } catch (_: ActivityNotFoundException) {
+                status = "Kein Browser zum Öffnen der Sendungsverfolgung gefunden."
+                DiagnosticLog.record(this@MainActivity, "ERROR", "Sendungsverfolgung", "Kein kompatibler Browser zum Öffnen gefunden.")
+            }
+        }
+
+        fun scan() {
+            GmsBarcodeScanning.getClient(this@MainActivity)
+                .startScan()
+                .addOnSuccessListener { result ->
+                    val rawCode = result.rawValue.orEmpty()
+                    detectCode(rawCode)?.let { provider -> openTracking(provider, rawCode) }
+                }
+                .addOnFailureListener {
+                    status = "Scan nicht möglich. Code kann auch über einen externen Scanner eingegeben werden."
+                    DiagnosticLog.record(this@MainActivity, "WARN", "Scanner", "Kamera-Scan fehlgeschlagen.")
+                }
         }
 
         MaterialTheme(
@@ -311,7 +349,7 @@ class MainActivity : ComponentActivity() {
                     Spacer(Modifier.height(28.dp))
                     Text("Paketdienst weiterleiten", fontSize = 22.sp, fontWeight = FontWeight.Bold)
                     Text(
-                        "Barcode scannen. TRAKUNA wählt den passenden Anbieter-Einstieg und öffnet den offiziellen Geschäftskunden-Einstieg im Browser.",
+                        "Barcode scannen. TRAKUNA erkennt den Paketdienst und übergibt die Sendungsnummer direkt an dessen offizielle Sendungsverfolgung.",
                         color = Color.DarkGray
                     )
                     Spacer(Modifier.height(20.dp))
@@ -323,17 +361,22 @@ class MainActivity : ComponentActivity() {
                     Spacer(Modifier.height(10.dp))
                     OutlinedTextField(
                         value = scannedCode,
-                        onValueChange = { scannedCode = it },
+                        onValueChange = {
+                            scannedCode = it
+                            selected = ""
+                            detected = false
+                            status = "Sendungsnummer übernommen. Anbieter bitte erneut erkennen oder manuell auswählen."
+                        },
                         label = { Text("Barcode / Zebra-Scanner") },
                         placeholder = { Text("Code scannen oder eingeben") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
                     OutlinedButton(
-                        onClick = { detectCode(scannedCode)?.let { openPortal(it) } },
+                        onClick = { detectCode(scannedCode)?.let { openTracking(it, scannedCode) } },
                         enabled = scannedCode.isNotBlank(),
                         modifier = Modifier.fillMaxWidth()
-                    ) { Text("ANBIETER ERKENNEN & PORTAL ÖFFNEN") }
+                    ) { Text("ANBIETER ERKENNEN & SENDUNG VERFOLGEN") }
                     if (scannedCode.isNotBlank()) {
                         Spacer(Modifier.height(10.dp))
                         Text("Erfasster Code: $scannedCode", fontSize = 12.sp, color = Color.DarkGray)
@@ -362,6 +405,13 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
+                    Spacer(Modifier.height(10.dp))
+                    Button(
+                        onClick = { openTracking(selected, scannedCode) },
+                        enabled = selected.isNotBlank() && scannedCode.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = RoundedCornerShape(14.dp)
+                    ) { Text("SENDUNGSNUMMER AN AUSGEWÄHLTEN ANBIETER ÜBERGEBEN", fontWeight = FontWeight.Bold) }
                     Spacer(Modifier.height(14.dp))
                     Button(
                         onClick = { openPortal() },
