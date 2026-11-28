@@ -388,8 +388,8 @@ class MainActivity : ComponentActivity() {
                         onStopDiscovery = { stopNetworkPrinterDiscovery() },
                         onSelectDiscoveredPrinter = { found ->
                             printerHost = found.host
-                            printerPort = found.port.toString()
-                            printerStatus = "${found.name} ausgewählt. Bitte Verbindung manuell starten."
+                            // Keep the RAW-TCP port separate from the advertised IPP/LPR service port.
+                            printerStatus = "${found.name} gefunden (${found.serviceType}, Port ${found.port}). Host übernommen; RAW-TCP-Port bei Bedarf separat einstellen."
                         },
                         onHostChange = { printerHost = it },
                         onPortChange = { printerPort = it.filter(Char::isDigit).take(5) },
