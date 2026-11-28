@@ -4,12 +4,33 @@ import java.io.ByteArrayOutputStream
 import java.net.URI
 import java.nio.charset.StandardCharsets
 
+internal data class IppAttributeValue(
+    val valueTag: Int,
+    val textValue: String? = null,
+    val integerValue: Int? = null,
+    val booleanValue: Boolean? = null,
+    val rawValue: ByteArray
+)
+
 internal data class IppResponse(
     val statusCode: Int,
     val requestId: Int,
-    val attributes: Map<String, List<String>>
+    val typedAttributes: Map<String, List<IppAttributeValue>>
 ) {
-    fun first(name: String): String? = attributes[name]?.firstOrNull()
+    /** Human-readable view retained for simple UI/debug consumers. */
+    val attributes: Map<String, List<String>>
+        get() = typedAttributes.mapValues { (_, values) ->
+            values.mapNotNull { value ->
+                value.textValue ?: value.integerValue?.toString() ?: value.booleanValue?.toString()
+            }
+        }
+
+    fun first(name: String): String? = typedAttributes[name]?.firstOrNull()?.let {
+        it.textValue ?: it.integerValue?.toString() ?: it.booleanValue?.toString()
+    }
+
+    fun firstInteger(name: String): Int? = typedAttributes[name]?.firstNotNullOfOrNull { it.integerValue }
+    fun firstBoolean(name: String): Boolean? = typedAttributes[name]?.firstNotNullOfOrNull { it.booleanValue }
 }
 
 /**
@@ -61,7 +82,7 @@ internal object IppProtocolCodec {
         val requestId = readU32(bytes, 4)
         var offset = 8
         var currentName = ""
-        val attributes = linkedMapOf<String, MutableList<String>>()
+        val attributes = linkedMapOf<String, MutableList<IppAttributeValue>>()
 
         while (offset < bytes.size) {
             val tag = bytes[offset++].toInt() and 0xFF
@@ -83,13 +104,34 @@ internal object IppProtocolCodec {
             val valueLength = readU16(bytes, offset)
             offset += 2
             require(offset + valueLength <= bytes.size) { "Truncated IPP attribute value." }
-            val value = String(bytes, offset, valueLength, StandardCharsets.UTF_8)
+            val raw = bytes.copyOfRange(offset, offset + valueLength)
             offset += valueLength
             if (currentName.isNotBlank()) {
-                attributes.getOrPut(currentName) { mutableListOf() }.add(value)
+                attributes.getOrPut(currentName) { mutableListOf() }.add(decodeValue(tag, raw))
             }
         }
         throw IllegalArgumentException("IPP response is missing end-of-attributes-tag.")
+    }
+
+    private fun decodeValue(tag: Int, raw: ByteArray): IppAttributeValue {
+        return when (tag) {
+            0x21, 0x23 -> {
+                require(raw.size == 4) { "IPP integer/enum values must contain exactly four bytes." }
+                IppAttributeValue(tag, integerValue = readU32(raw, 0), rawValue = raw)
+            }
+            0x22 -> {
+                require(raw.size == 1 && (raw[0].toInt() == 0 || raw[0].toInt() == 1)) {
+                    "IPP boolean values must be one byte containing 0 or 1."
+                }
+                IppAttributeValue(tag, booleanValue = raw[0].toInt() == 1, rawValue = raw)
+            }
+            in TEXT_VALUE_TAGS -> IppAttributeValue(
+                tag,
+                textValue = String(raw, StandardCharsets.UTF_8),
+                rawValue = raw
+            )
+            else -> IppAttributeValue(tag, rawValue = raw)
+        }
     }
 
     private fun writeAttribute(out: ByteArrayOutputStream, tag: Int, name: String, value: String) {
@@ -123,4 +165,6 @@ internal object IppProtocolCodec {
             ((bytes[offset + 1].toInt() and 0xFF) shl 16) or
             ((bytes[offset + 2].toInt() and 0xFF) shl 8) or
             (bytes[offset + 3].toInt() and 0xFF)
+
+    private val TEXT_VALUE_TAGS = setOf(0x41, 0x42, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49)
 }
