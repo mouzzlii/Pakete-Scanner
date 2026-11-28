@@ -53,10 +53,11 @@ Die Netzwerkprüfung läuft außerhalb des UI-Threads und verwendet ein Verbindu
 
 ## Fehlerprotokoll
 
-- Druckerstatusänderungen werden lokal auf dem Android-Gerät protokolliert (maximal 150 Einträge).
+- Diagnoseereignisse aus Scanner, Anbieterportal, Bluetooth-Berechtigung und Drucker-Verbindungstests werden lokal auf dem Android-Gerät protokolliert (maximal 150 Einträge).
 - Das Protokoll zeigt Zeitstempel und Statusmeldungen, markiert erkannte Fehler/Warnungen und kann über die Android-Teilen-Funktion exportiert oder in der App gelöscht werden.
-- IP-Adressen, Bluetooth-MAC-Adressen und lange reine Zahlencodes werden vor dem Speichern maskiert. Es werden keine Druckdaten oder Etiketteninhalte protokolliert.
-- Derzeit umfasst das Protokoll Drucker-Verbindungsstatus; es ist noch kein vollständiges App-/Crash-Reporting.
+- IP-Adressen, Bluetooth-MAC-Adressen und lange reine Zahlencodes werden vor dem Speichern maskiert. Es werden keine Paketcodes, Passwörter, Druckdaten oder Etiketteninhalte absichtlich protokolliert.
+- Das Protokoll ist ein begrenztes Ereignisprotokoll, kein vollständiges App-/Crash-Reporting und erfasst keine Abstürze, die vor einer Protokollierung auftreten.
+- Automatische Diagnoseereignisse und Maskierung sind durch Unit-Tests abgesichert; reale Android-Geräte-/Hardwaretests stehen aus.
 
 ## Sicherheits- und Funktionsgrenzen
 
