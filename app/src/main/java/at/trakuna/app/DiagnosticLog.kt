@@ -2,7 +2,6 @@ package at.trakuna.app
 
 import android.content.Context
 import android.content.Intent
-import android.util.Base64
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
