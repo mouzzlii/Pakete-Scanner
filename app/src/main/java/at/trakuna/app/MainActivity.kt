@@ -100,7 +100,20 @@ class MainActivity : ComponentActivity() {
         var printerConnected by remember { mutableStateOf(false) }
         var printerConnectionAttempt by remember { mutableIntStateOf(0) }
         var pairedPrinters by remember { mutableStateOf(listOf<Pair<BluetoothDevice, String>>()) }
+        var discoveredPrinters by remember { mutableStateOf(listOf<DiscoveredPrinter>()) }
         val coroutineScope = rememberCoroutineScope()
+        val printerDiscovery = remember {
+            PrinterDiscovery(
+                applicationContext,
+                onPrinterFound = { found ->
+                    discoveredPrinters = (discoveredPrinters.filterNot { it.key == found.key } + found).take(30)
+                },
+                onStatus = { printerStatus = it }
+            )
+        }
+        DisposableEffect(printerDiscovery) {
+            onDispose { printerDiscovery.close() }
+        }
 
         val bluetoothPermissionLauncher = rememberLauncherForActivityResult(
             ActivityResultContracts.RequestPermission()
@@ -134,6 +147,15 @@ class MainActivity : ComponentActivity() {
             } catch (_: SecurityException) {
                 printerStatus = "Bluetooth-Berechtigung fehlt."
             }
+        }
+
+        fun startNetworkPrinterDiscovery() {
+            discoveredPrinters = emptyList()
+            printerDiscovery.start()
+        }
+
+        fun stopNetworkPrinterDiscovery() {
+            printerDiscovery.stop()
         }
 
         fun connectWifiEndpoint() {
@@ -361,6 +383,14 @@ class MainActivity : ComponentActivity() {
                         port = printerPort,
                         status = printerStatus,
                         pairedPrinters = pairedPrinters,
+                        discoveredPrinters = discoveredPrinters,
+                        onDiscoverNetwork = { startNetworkPrinterDiscovery() },
+                        onStopDiscovery = { stopNetworkPrinterDiscovery() },
+                        onSelectDiscoveredPrinter = { found ->
+                            printerHost = found.host
+                            printerPort = found.port.toString()
+                            printerStatus = "${found.name} ausgewählt. Bitte Verbindung manuell starten."
+                        },
                         onHostChange = { printerHost = it },
                         onPortChange = { printerPort = it.filter(Char::isDigit).take(5) },
                         onTestNetwork = { connectWifiEndpoint() },
