@@ -41,15 +41,27 @@ Diese Muster decken nicht alle nationalen und internationalen Sendungsnummern ab
 
 Vor dem TCP-Verbindungsversuch prüft TRAKUNA die manuelle Host-/Port-Eingabe. Unterstützt werden Hostnamen sowie IPv4- und IPv6-Adressen. URL-Schemata, Pfade, ungültige Zeichen und Ports außerhalb von 1 bis 65535 werden abgewiesen. Die Prüfung selbst stellt noch keine Verbindung her.
 
-Die Netzwerkprüfung läuft außerhalb des UI-Threads und verwendet ein Verbindungszeitlimit von drei Sekunden. Aus Sicherheitsgründen werden ausschließlich lokale/private Zieladressen zugelassen; öffentliche IP-Adressen und Hostnamen, die auf öffentliche Adressen zeigen, werden abgewiesen. Die bereits geprüfte IP-Adresse wird direkt verbunden, damit keine zweite DNS-Auflösung dazwischenfunkt. Ein erfolgreicher TCP-Verbindungsaufbau bestätigt ausschließlich die Erreichbarkeit dieses Endpunkts – nicht IPP, IPPS oder die Druckbereitschaft des Geräts.
+Die Netzwerkprüfung läuft außerhalb des UI-Threads und verwendet ein Verbindungszeitlimit von fünf Sekunden. Aus Sicherheitsgründen werden ausschließlich lokale/private Zieladressen zugelassen; öffentliche IP-Adressen und Hostnamen, die auf öffentliche Adressen zeigen, werden abgewiesen. Die bereits geprüfte IP-Adresse wird direkt verbunden, damit keine zweite DNS-Auflösung dazwischenfunkt. Ein erfolgreicher TCP-Verbindungsaufbau bestätigt ausschließlich die Erreichbarkeit dieses Endpunkts – nicht IPP, IPPS oder die Druckbereitschaft des Geräts.
 
 ## Drucker – aktueller Umfang
 
-- WLAN/LAN: manuelle TCP-Erreichbarkeitsprüfung eines selbst eingegebenen Hosts und Ports.
-- Bluetooth: Anzeige bereits gekoppelter Geräte und ein ausdrücklicher Bluetooth-Classic-SPP-Verbindungsversuch.
-- Es werden keine Druckdaten oder Etiketten gesendet oder erzeugt.
-- Eine erreichbare TCP-Adresse oder erfolgreiche SPP-Verbindung beweist weder IPP-Unterstützung noch Druckbereitschaft.
-- IPP/IPPS, mDNS/DNS-SD, LPR, BLE/GATT und Druckformatadapter sind noch nicht implementiert.
+- WLAN/LAN: automatische DNS-SD/mDNS-Erkennung für die Dienste `_ipp._tcp`, `_ipps._tcp`, `_printer._tcp` und `_pdl-datastream._tcp`; gefundene Geräte können mit ihrer IP-Adresse als Host übernommen werden. Der angezeigte Dienst-Port wird nur beim expliziten PDL-Datastream-Dienst als RAW-Datenport übernommen; IPP/IPPS- und LPR-Dienstports werden getrennt gehalten (z. B. ist IPP-Port 631 kein RAW-TCP-Port). Die Suche findet nur Geräte, die diese Dienste im lokalen Netz ankündigen. Eine Anzeige ist kein Kompatibilitäts- oder Druckbereitschaftsnachweis.
+- WLAN/LAN: modellunabhängiger RAW-TCP-Transport. TRAKUNA baut nach manueller Host-/Port-Eingabe (oder Übernahme eines gefundenen Endpunkts) eine TCP-Verbindung auf (Standardport 9100) und hält den Socket bis zum manuellen Trennen bzw. bis zum Schließen der App offen. Der Drucker muss RAW-TCP unterstützen; Port 9100 ist verbreitet, aber nicht universell.
+- Bluetooth: Anzeige bereits gekoppelter Geräte und Aufbau einer gehaltenen Bluetooth-Classic-SPP-Verbindung; der Nutzer kann sie in der App wieder trennen. Der Drucker muss ein serielles SPP-Profil anbieten.
+- Die Transport-Schnittstelle ist herstellerunabhängig und benötigt kein bestimmtes Druckermodell. Sie kann aber nicht automatisch jedes Druckprotokoll oder jedes Bluetooth-Profil übersetzen.
+- Es ist immer nur eine aktive Druckerverbindung vorgesehen; beim Wechsel wird die vorherige Verbindung geschlossen.
+- Beim Verlassen/Beenden der Activity wird die aktive Verbindung geschlossen.
+- Es werden weiterhin keine Druckdaten oder Etiketten gesendet oder erzeugt.
+- Eine gehaltene TCP-Verbindung oder erfolgreiche SPP-Verbindung beweist weder IPP-Unterstützung noch Druckbereitschaft. Port 631 allein ist kein Nachweis für eine vollständige IPP-Implementierung.
+- Die Erkennung nutzt mDNS/DNS-SD-Ankündigungen; ein vollständiger IPP-/IPPS-Druckclient, LPR, BLE/GATT und Druckformatadapter sind noch nicht implementiert.
+
+## Fehlerprotokoll
+
+- Diagnoseereignisse aus Scanner, Anbieterportal, Bluetooth-Berechtigung und Drucker-Verbindungstests werden lokal auf dem Android-Gerät protokolliert (maximal 150 Einträge).
+- Das Protokoll zeigt Zeitstempel und Statusmeldungen, markiert erkannte Fehler/Warnungen und kann über die Android-Teilen-Funktion exportiert oder in der App gelöscht werden.
+- IP-Adressen, Bluetooth-MAC-Adressen und lange reine Zahlencodes werden vor dem Speichern maskiert. Es werden keine Paketcodes, Passwörter, Druckdaten oder Etiketteninhalte absichtlich protokolliert.
+- Das Protokoll ist ein begrenztes Ereignisprotokoll, kein vollständiges App-/Crash-Reporting und erfasst keine Abstürze, die vor einer Protokollierung auftreten.
+- Automatische Diagnoseereignisse und Maskierung sind durch Unit-Tests abgesichert; reale Android-Geräte-/Hardwaretests stehen aus.
 
 ## Sicherheits- und Funktionsgrenzen
 

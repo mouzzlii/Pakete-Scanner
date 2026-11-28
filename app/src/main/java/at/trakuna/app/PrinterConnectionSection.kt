@@ -31,22 +31,59 @@ internal fun PrinterConnectionSection(
     port: String,
     status: String,
     pairedPrinters: List<Pair<BluetoothDevice, String>>,
+    discoveredPrinters: List<DiscoveredPrinter>,
+    onDiscoverNetwork: () -> Unit,
+    onStopDiscovery: () -> Unit,
+    onSelectDiscoveredPrinter: (DiscoveredPrinter) -> Unit,
     onHostChange: (String) -> Unit,
     onPortChange: (String) -> Unit,
     onTestNetwork: () -> Unit,
     onLoadBluetooth: () -> Unit,
-    onTestBluetooth: (BluetoothDevice) -> Unit
+    onTestBluetooth: (BluetoothDevice) -> Unit,
+    isConnected: Boolean,
+    onDisconnect: () -> Unit
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(Modifier.fillMaxWidth().padding(14.dp)) {
             Text("DRUCKER VERBINDEN", fontWeight = FontWeight.Bold, color = PrinterForest)
             Text(
-                "Erste Teststufe: Verbindung prüfen – keine Druckdaten werden gesendet.",
+                "Modellunabhängige Transportverbindung: WLAN/LAN über RAW-TCP und Bluetooth Classic über SPP. Die Verbindung bleibt bis zum manuellen Trennen geöffnet. Noch kein Druckauftrag.",
                 fontSize = 12.sp,
                 color = Color.DarkGray
             )
             Spacer(Modifier.height(8.dp))
-            Text("WLAN / LAN (manuelle IP)", fontWeight = FontWeight.SemiBold)
+            Text("WLAN / LAN – automatische Suche", fontWeight = FontWeight.SemiBold)
+            Text(
+                "Erkennt Druckerdienste, die sich im lokalen Netzwerk per DNS-SD/mDNS bekannt machen. Nicht alle Drucker senden solche Anzeigen.",
+                fontSize = 11.sp,
+                color = Color.DarkGray
+            )
+            OutlinedButton(onClick = onDiscoverNetwork, modifier = Modifier.fillMaxWidth()) {
+                Text("NETZWERKDRUCKER SUCHEN")
+            }
+            OutlinedButton(onClick = onStopDiscovery, modifier = Modifier.fillMaxWidth()) {
+                Text("NETZWERKSUCHE BEENDEN")
+            }
+            discoveredPrinters.forEach { found ->
+                OutlinedButton(
+                    onClick = { onSelectDiscoveredPrinter(found) },
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                ) {
+                    val identity = listOfNotNull(found.metadata.manufacturer, found.metadata.model).joinToString(" ")
+                    Text(
+                        "${found.name} – ${found.metadata.protocolLabel}" +
+                            (identity.takeIf { it.isNotBlank() }?.let { " · $it" } ?: "") +
+                            " · ${found.host}:${found.port}" +
+                            (found.metadata.resourcePath?.let { " · Pfad $it" } ?: "") +
+                            " (übernehmen)"
+                    )
+                }
+            }
+            if (discoveredPrinters.isEmpty()) {
+                Text("Noch keine Netzwerkdrucker gefunden.", fontSize = 11.sp, color = Color.DarkGray)
+            }
+            HorizontalDivider()
+            Text("RAW-TCP-Verbindung (manuelle Eingabe)", fontWeight = FontWeight.SemiBold)
             OutlinedTextField(
                 value = host,
                 onValueChange = onHostChange,
@@ -58,17 +95,17 @@ internal fun PrinterConnectionSection(
             OutlinedTextField(
                 value = port,
                 onValueChange = onPortChange,
-                label = { Text("Port (IPP häufig 631)") },
+                label = { Text("RAW-TCP-Port (typisch 9100)") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
             OutlinedButton(onClick = onTestNetwork, modifier = Modifier.fillMaxWidth()) {
-                Text("NETZWERK-VERBINDUNG TESTEN")
+                Text("MIT NETZWERK-DRUCKER VERBINDEN")
             }
             HorizontalDivider()
-            Text("Bluetooth Classic (SPP)", fontWeight = FontWeight.SemiBold)
+            Text("Bluetooth Classic – SPP", fontWeight = FontWeight.SemiBold)
             Text(
-                "Drucker zuerst in Android koppeln. BLE und proprietäre Profile benötigen später eigene Adapter.",
+                "Drucker zuerst in Android koppeln. SPP funktioniert bei Geräten mit serieller Bluetooth-Schnittstelle; BLE/GATT und herstellerspezifische Profile sind nicht automatisch kompatibel.",
                 fontSize = 11.sp,
                 color = Color.DarkGray
             )
@@ -80,12 +117,18 @@ internal fun PrinterConnectionSection(
                     onClick = { onTestBluetooth(device) },
                     modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
                 ) {
-                    Text("$displayName – SPP testen")
+                    Text("$displayName – per SPP verbinden")
                 }
             }
             Spacer(Modifier.height(8.dp))
             Text("Druckerstatus", fontWeight = FontWeight.SemiBold, color = PrinterForest)
+            Text(if (isConnected) "● Verbunden" else "○ Nicht verbunden", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (isConnected) PrinterForest else Color.DarkGray)
             Text(status, fontSize = 12.sp)
+            if (isConnected) {
+                OutlinedButton(onClick = onDisconnect, modifier = Modifier.fillMaxWidth()) {
+                    Text("DRUCKER TRENNEN")
+                }
+            }
         }
     }
 }

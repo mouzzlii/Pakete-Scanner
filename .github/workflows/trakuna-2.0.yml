@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - fix/trakuna-scroll-layout
+      - feat/trakuna-printer-diagnostics
   pull_request:
     branches:
       - main

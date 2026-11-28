@@ -4,6 +4,8 @@ import android.Manifest
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
 import android.content.ActivityNotFoundException
+import android.content.ClipboardManager
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -38,13 +40,18 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.UUID
+import java.io.Closeable
+import android.widget.Toast
 
 private val Forest = Color(0xFF174D39)
 private val Pale = Color(0xFFF1F5F2)
 
-private suspend fun connectBluetoothSpp(context: Context, device: BluetoothDevice): String {
-    if (context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-        return "Bluetooth-Zugriff nicht freigegeben. Bitte Berechtigung erteilen und erneut versuchen."
+private data class BluetoothConnectResult(val socket: BluetoothSocket?, val message: String)
+
+private suspend fun connectBluetoothSpp(context: Context, device: BluetoothDevice): BluetoothConnectResult {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+        context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+        return BluetoothConnectResult(null, "Bluetooth-Zugriff nicht freigegeben. Bitte Berechtigung erteilen und erneut versuchen.")
     }
     return suspendCancellableCoroutine { continuation ->
         val socket = try {
@@ -52,29 +59,33 @@ private suspend fun connectBluetoothSpp(context: Context, device: BluetoothDevic
                 UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
             )
         } catch (_: Exception) {
-            continuation.resume("SPP-Verbindung fehlgeschlagen: Profil nicht unterstützt oder Gerät nicht erreichbar.")
+            continuation.resume(BluetoothConnectResult(null, "SPP-Verbindung fehlgeschlagen: Profil nicht unterstützt oder Gerät nicht erreichbar."))
             return@suspendCancellableCoroutine
         }
-
-        continuation.invokeOnCancellation {
-            try { socket.close() } catch (_: Exception) {}
-        }
-
+        continuation.invokeOnCancellation { try { socket.close() } catch (_: Exception) {} }
         Thread({
             val result = try {
                 socket.connect()
-                "Bluetooth-SPP-Verbindung erfolgreich. Es wurden keine Druckdaten gesendet."
+                BluetoothConnectResult(socket, "Bluetooth-SPP verbunden. Die Verbindung bleibt bis zum Trennen geöffnet; es wurden keine Druckdaten gesendet.")
             } catch (_: Exception) {
-                "SPP-Verbindung fehlgeschlagen: Profil nicht unterstützt oder Gerät nicht erreichbar."
-            } finally {
                 try { socket.close() } catch (_: Exception) {}
+                BluetoothConnectResult(null, "SPP-Verbindung fehlgeschlagen: Profil nicht unterstützt oder Gerät nicht erreichbar.")
             }
             if (continuation.isActive) continuation.resume(result)
+            else try { result.socket?.close() } catch (_: Exception) {}
         }, "trakuna-bluetooth-spp").start()
     }
 }
 
 class MainActivity : ComponentActivity() {
+    private var activePrinterConnection: Closeable? = null
+
+    override fun onDestroy() {
+        try { activePrinterConnection?.close() } catch (_: Exception) {}
+        activePrinterConnection = null
+        super.onDestroy()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent { TrakunaApp() }
@@ -87,10 +98,25 @@ class MainActivity : ComponentActivity() {
         var status by remember { mutableStateOf("Bereit. Paket scannen oder Anbieter auswählen.") }
         var detected by remember { mutableStateOf(false) }
         var printerHost by remember { mutableStateOf("") }
-        var printerPort by remember { mutableStateOf("631") }
-        var printerStatus by remember { mutableStateOf("Noch kein Verbindungstest durchgeführt.") }
+        var printerPort by remember { mutableStateOf("9100") }
+        var printerStatus by remember { mutableStateOf("Noch keine Druckerverbindung hergestellt.") }
+        var printerConnected by remember { mutableStateOf(false) }
+        var printerConnectionAttempt by remember { mutableIntStateOf(0) }
         var pairedPrinters by remember { mutableStateOf(listOf<Pair<BluetoothDevice, String>>()) }
+        var discoveredPrinters by remember { mutableStateOf(listOf<DiscoveredPrinter>()) }
         val coroutineScope = rememberCoroutineScope()
+        val printerDiscovery = remember {
+            PrinterDiscovery(
+                applicationContext,
+                onPrinterFound = { found ->
+                    discoveredPrinters = (discoveredPrinters.filterNot { it.key == found.key } + found).take(30)
+                },
+                onStatus = { printerStatus = it }
+            )
+        }
+        DisposableEffect(printerDiscovery) {
+            onDispose { printerDiscovery.close() }
+        }
 
         val bluetoothPermissionLauncher = rememberLauncherForActivityResult(
             ActivityResultContracts.RequestPermission()
@@ -100,11 +126,14 @@ class MainActivity : ComponentActivity() {
                     val adapter = (getSystemService(BLUETOOTH_SERVICE) as android.bluetooth.BluetoothManager).adapter
                     pairedPrinters = adapter?.bondedDevices?.toList()?.map { device -> device to (device.name?.takeIf { it.isNotBlank() } ?: "Bluetooth-Gerät (${device.address})") }?.sortedBy { it.second } ?: emptyList()
                     printerStatus = if (pairedPrinters.isEmpty()) "Keine gekoppelten Bluetooth-Geräte gefunden. Kopple den Drucker zuerst in den Android-Einstellungen."
-                        else "Gekoppelte Geräte geladen. Wähle einen Drucker für den SPP-Verbindungstest."
+                        else "Gekoppelte Geräte geladen. Wähle einen Drucker für die SPP-Verbindung."
                 } catch (_: SecurityException) {
                     printerStatus = "Bluetooth-Berechtigung fehlt."
                 }
-            } else printerStatus = "Bluetooth-Zugriff wurde nicht freigegeben."
+            } else {
+                printerStatus = "Bluetooth-Zugriff wurde nicht freigegeben."
+                DiagnosticLog.record(this@MainActivity, "WARN", "Berechtigung", "Bluetooth-Zugriff nicht freigegeben.")
+            }
         }
 
         fun loadPairedPrinters() {
@@ -123,14 +152,29 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        fun testWifiEndpoint() {
+        fun startNetworkPrinterDiscovery() {
+            discoveredPrinters = emptyList()
+            printerDiscovery.start()
+        }
+
+        fun stopNetworkPrinterDiscovery() {
+            printerDiscovery.stop()
+        }
+
+        fun connectWifiEndpoint() {
+            val attempt = ++printerConnectionAttempt
             val validation = TcpEndpointValidator.parse(printerHost, printerPort)
             if (validation is TcpEndpointValidation.Invalid) {
                 printerStatus = validation.reason
+                DiagnosticLog.record(this@MainActivity, "WARN", "Drucker-Netzwerk", validation.reason)
                 return
             }
             val endpoint = (validation as TcpEndpointValidation.Valid).endpoint
-            printerStatus = "Prüfe Netzwerk-Endpunkt …"
+            try { activePrinterConnection?.close() } catch (_: Exception) {}
+            activePrinterConnection = null
+            printerConnected = false
+            printerStatus = "Verbinde mit Netzwerk-Drucker …"
+            DiagnosticLog.record(this@MainActivity, "INFO", "Drucker-Netzwerk", "Netzwerk-Verbindungstest gestartet.")
             coroutineScope.launch {
                 val result = withContext(Dispatchers.IO) {
                     try {
@@ -139,50 +183,78 @@ class MainActivity : ComponentActivity() {
                             return@withContext "Aus Sicherheitsgründen sind nur lokale/private Netzwerkadressen als Druckerziel erlaubt."
                         }
                         // Connect to the already-validated address; do not resolve the hostname again.
-                        Socket().use { socket ->
-                            socket.connect(InetSocketAddress(resolved.first(), endpoint.port), 3000)
+                        val socket = Socket()
+                        try {
+                            socket.connect(InetSocketAddress(resolved.first(), endpoint.port), 5000)
+                            socket
+                        } catch (e: Exception) {
+                            try { socket.close() } catch (_: Exception) {}
+                            throw e
                         }
-                        "Lokaler TCP-Endpunkt ${endpoint.host}:${endpoint.port} ist erreichbar. IPP-/Druckerfähigkeit wurde damit noch nicht bestätigt."
                     } catch (e: Exception) {
                         "Netzwerk-Endpunkt nicht erreichbar: ${e.message ?: "Verbindung fehlgeschlagen"}"
                     }
                 }
-                printerStatus = result
+                if (attempt != printerConnectionAttempt) {
+                    if (result is Socket) try { result.close() } catch (_: Exception) {}
+                    return@launch
+                }
+                if (result is Socket) {
+                    activePrinterConnection = result
+                    printerConnected = true
+                    printerStatus = "Mit ${endpoint.host}:${endpoint.port} verbunden. TCP-Verbindung bleibt geöffnet. Druckerprotokoll und Druckbereitschaft sind noch nicht geprüft."
+                } else {
+                    printerConnected = false
+                    printerStatus = result as String
+                }
+                DiagnosticLog.record(this@MainActivity, if (printerConnected) "INFO" else "WARN", "Drucker-Netzwerk", if (printerConnected) "Netzwerk-Druckerverbindung hergestellt; Zieladresse ausgeblendet." else "Netzwerk-Druckerverbindung fehlgeschlagen; Zieladresse und Systemdetails nicht protokolliert.")
             }
         }
 
-        fun testBluetoothSpp(device: BluetoothDevice) {
-            if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    bluetoothPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
-                } else {
-                    printerStatus = "Bluetooth-Berechtigung fehlt. Bitte App-Berechtigungen in Android prüfen."
-                }
+        fun connectBluetoothSppToDevice(device: BluetoothDevice) {
+            val attempt = ++printerConnectionAttempt
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                bluetoothPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
                 return
             }
-            printerStatus = "Prüfe Bluetooth-SPP-Verbindung …"
+            try { activePrinterConnection?.close() } catch (_: Exception) {}
+            activePrinterConnection = null
+            printerConnected = false
+            printerStatus = "Verbinde per Bluetooth-SPP …"
+            DiagnosticLog.record(this@MainActivity, "INFO", "Drucker-Bluetooth", "Bluetooth-SPP-Verbindungsaufbau gestartet.")
             coroutineScope.launch {
                 val result = try {
                     withTimeoutOrNull(12_000) {
                         connectBluetoothSpp(this@MainActivity, device)
-                    } ?: "SPP-Verbindung nach 12 Sekunden abgebrochen. Gerät und Profil prüfen."
+                    } ?: BluetoothConnectResult(null, "SPP-Verbindung nach 12 Sekunden abgebrochen. Gerät und Profil prüfen.")
                 } catch (_: SecurityException) {
-                    "Bluetooth-Zugriff verweigert. Berechtigung erneut prüfen."
+                    BluetoothConnectResult(null, "Bluetooth-Zugriff verweigert. Berechtigung erneut prüfen.")
                 }
-                printerStatus = result
+                if (attempt != printerConnectionAttempt) {
+                    try { result.socket?.close() } catch (_: Exception) {}
+                    return@launch
+                }
+                activePrinterConnection = result.socket
+                printerConnected = result.socket != null
+                printerStatus = result.message
+                DiagnosticLog.record(this@MainActivity, if (printerConnected) "INFO" else "WARN", "Drucker-Bluetooth", result.message)
             }
         }
 
         
 
-        fun detectCode(raw: String) {
+        fun detectCode(raw: String): String? {
             scannedCode = raw.trim()
             val match = CarrierDetector.detect(scannedCode)
             if (match != null) {
+                DiagnosticLog.record(this@MainActivity, "INFO", "Scanner", "Barcode-Muster erkannt; Anbieter-Kandidat zugeordnet.")
                 selected = match
                 detected = true
-                status = "Anbieter-Kandidat erkannt: $match. Prüfe die Auswahl und öffne das Portal erst mit der Portal-Schaltfläche."
+                status = "Anbieter erkannt: $match. Das passende Anbieterportal wird geöffnet."
+                return match
             } else {
+                DiagnosticLog.record(this@MainActivity, "WARN", "Scanner", "Barcode erfasst, Anbieter nicht eindeutig zuordenbar.")
                 selected = ""
                 detected = false
                 status = if (Regex("""^872\d{10}$""").matches(scannedCode.uppercase(Locale.ROOT).replace(Regex("""[\s-]"""), ""))) {
@@ -190,30 +262,72 @@ class MainActivity : ComponentActivity() {
                 } else {
                     "Anbieter nicht eindeutig erkannt. Bitte Anbieter auswählen."
                 }
+                return null
+            }
+        }
+
+        fun openPortal(provider: String = selected) {
+            val portalUrl = CarrierPortals.all.firstOrNull { it.name == provider }?.url
+            if (portalUrl == null) {
+                status = "Bitte zuerst einen Paketdienst auswählen."
+                DiagnosticLog.record(this@MainActivity, "WARN", "Portal", "Portalöffnung ohne ausgewählten Anbieter angefordert.")
+                return
+            }
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(portalUrl)))
+                status = "$provider wird im externen Android-Browser geöffnet. Anmeldung und Vorgänge erfolgen ausschließlich beim Anbieter."
+                DiagnosticLog.record(this@MainActivity, "INFO", "Portal", "Anbieterportal an Android-Browser übergeben.")
+            } catch (_: ActivityNotFoundException) {
+                status = "Kein Browser zum Öffnen des Anbieterportals gefunden."
+                DiagnosticLog.record(this@MainActivity, "ERROR", "Portal", "Kein kompatibler Browser zum Öffnen gefunden.")
+            }
+        }
+
+        fun openTracking(provider: String, rawCode: String) {
+            val adapter = CarrierRegistry.byDisplayName(provider)
+            val trackingNumber = CarrierDetector.normalize(rawCode)
+            if (adapter == null || trackingNumber.length !in 5..60) {
+                status = "Anbieter oder Sendungsnummer ist ungültig. Bitte Eingabe prüfen."
+                return
+            }
+            val trackingUrl = CarrierRegistry.trackingUrl(adapter.id, trackingNumber)
+            val targetUrl = trackingUrl ?: CarrierRegistry.trackingPageUrl(adapter.id)
+            if (targetUrl == null) {
+                status = "Für diesen Anbieter ist noch keine Sendungsverfolgungsseite hinterlegt."
+                return
+            }
+            try {
+                if (trackingUrl == null) {
+                    val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("Sendungsnummer", trackingNumber))
+                }
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl)))
+                status = if (trackingUrl != null) {
+                    "Sendungsnummer wurde an die offizielle Sendungsverfolgung von $provider übergeben."
+                } else {
+                    "Offizielle $provider-Sendungsverfolgung geöffnet. Die Sendungsnummer wurde kopiert; bitte in das Suchfeld einfügen."
+                }
+                if (trackingUrl == null) {
+                    Toast.makeText(this@MainActivity, "Sendungsnummer kopiert – im Suchfeld einfügen.", Toast.LENGTH_LONG).show()
+                }
+                DiagnosticLog.record(this@MainActivity, "INFO", "Sendungsverfolgung", "Offizielle Anbieterseite geöffnet; Sendungsnummer nicht protokolliert.")
+            } catch (_: ActivityNotFoundException) {
+                status = "Kein Browser zum Öffnen der Sendungsverfolgung gefunden."
+                DiagnosticLog.record(this@MainActivity, "ERROR", "Sendungsverfolgung", "Kein kompatibler Browser zum Öffnen gefunden.")
             }
         }
 
         fun scan() {
             GmsBarcodeScanning.getClient(this@MainActivity)
                 .startScan()
-                .addOnSuccessListener { result -> detectCode(result.rawValue.orEmpty()) }
+                .addOnSuccessListener { result ->
+                    val rawCode = result.rawValue.orEmpty()
+                    detectCode(rawCode)?.let { provider -> openTracking(provider, rawCode) }
+                }
                 .addOnFailureListener {
                     status = "Scan nicht möglich. Code kann auch über einen externen Scanner eingegeben werden."
+                    DiagnosticLog.record(this@MainActivity, "WARN", "Scanner", "Kamera-Scan fehlgeschlagen.")
                 }
-        }
-
-        fun openPortal() {
-            val portalUrl = CarrierPortals.all.firstOrNull { it.name == selected }?.url
-            if (portalUrl == null) {
-                status = "Bitte zuerst einen Paketdienst auswählen."
-                return
-            }
-            try {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(portalUrl)))
-                status = "$selected wird im externen Android-Browser geöffnet. Anmeldung und Vorgänge erfolgen ausschließlich beim Anbieter."
-            } catch (_: ActivityNotFoundException) {
-                status = "Kein Browser zum Öffnen des Anbieterportals gefunden."
-            }
         }
 
         MaterialTheme(
@@ -235,7 +349,7 @@ class MainActivity : ComponentActivity() {
                     Spacer(Modifier.height(28.dp))
                     Text("Paketdienst weiterleiten", fontSize = 22.sp, fontWeight = FontWeight.Bold)
                     Text(
-                        "Barcode scannen. TRAKUNA wählt den passenden Anbieter-Einstieg und öffnet den offiziellen Geschäftskunden-Einstieg im Browser.",
+                        "Barcode scannen. TRAKUNA erkennt den Paketdienst und übergibt die Sendungsnummer direkt an dessen offizielle Sendungsverfolgung.",
                         color = Color.DarkGray
                     )
                     Spacer(Modifier.height(20.dp))
@@ -247,17 +361,22 @@ class MainActivity : ComponentActivity() {
                     Spacer(Modifier.height(10.dp))
                     OutlinedTextField(
                         value = scannedCode,
-                        onValueChange = { scannedCode = it },
+                        onValueChange = {
+                            scannedCode = it
+                            selected = ""
+                            detected = false
+                            status = "Sendungsnummer übernommen. Anbieter bitte erneut erkennen oder manuell auswählen."
+                        },
                         label = { Text("Barcode / Zebra-Scanner") },
                         placeholder = { Text("Code scannen oder eingeben") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
                     OutlinedButton(
-                        onClick = { detectCode(scannedCode); openPortal() },
+                        onClick = { detectCode(scannedCode)?.let { openTracking(it, scannedCode) } },
                         enabled = scannedCode.isNotBlank(),
                         modifier = Modifier.fillMaxWidth()
-                    ) { Text("ANBIETER ERKENNEN & PORTAL ÖFFNEN") }
+                    ) { Text("ANBIETER ERKENNEN & SENDUNG VERFOLGEN") }
                     if (scannedCode.isNotBlank()) {
                         Spacer(Modifier.height(10.dp))
                         Text("Erfasster Code: $scannedCode", fontSize = 12.sp, color = Color.DarkGray)
@@ -286,6 +405,13 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
+                    Spacer(Modifier.height(10.dp))
+                    Button(
+                        onClick = { openTracking(selected, scannedCode) },
+                        enabled = selected.isNotBlank() && scannedCode.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = RoundedCornerShape(14.dp)
+                    ) { Text("SENDUNGSNUMMER AN AUSGEWÄHLTEN ANBIETER ÜBERGEBEN", fontWeight = FontWeight.Bold) }
                     Spacer(Modifier.height(14.dp))
                     Button(
                         onClick = { openPortal() },
@@ -311,12 +437,37 @@ class MainActivity : ComponentActivity() {
                         port = printerPort,
                         status = printerStatus,
                         pairedPrinters = pairedPrinters,
+                        discoveredPrinters = discoveredPrinters,
+                        onDiscoverNetwork = { startNetworkPrinterDiscovery() },
+                        onStopDiscovery = { stopNetworkPrinterDiscovery() },
+                        onSelectDiscoveredPrinter = { found ->
+                            printerHost = found.host
+                            // Only the PDL datastream service advertises a direct print-data TCP endpoint.
+                            if (found.serviceType.equals("_pdl-datastream._tcp.", ignoreCase = true)) {
+                                printerPort = found.port.toString()
+                                printerStatus = "${found.name} gefunden. Host und PDL-Datastream-Port übernommen; Druckersprache bleibt zu prüfen."
+                            } else {
+                                // IPP/IPPS and LPR-style service ports are not RAW-TCP ports.
+                                printerStatus = "${found.name} gefunden (${found.serviceType}, Port ${found.port}). Host übernommen; RAW-TCP-Port bleibt separat."
+                            }
+                        },
                         onHostChange = { printerHost = it },
                         onPortChange = { printerPort = it.filter(Char::isDigit).take(5) },
-                        onTestNetwork = { testWifiEndpoint() },
+                        onTestNetwork = { connectWifiEndpoint() },
                         onLoadBluetooth = { loadPairedPrinters() },
-                        onTestBluetooth = { device -> testBluetoothSpp(device) }
+                        onTestBluetooth = { device -> connectBluetoothSppToDevice(device) },
+                        isConnected = printerConnected,
+                        onDisconnect = {
+                            printerConnectionAttempt++
+                            try { activePrinterConnection?.close() } catch (_: Exception) {}
+                            activePrinterConnection = null
+                            printerConnected = false
+                            printerStatus = "Druckerverbindung getrennt."
+                            DiagnosticLog.record(this@MainActivity, "INFO", "Drucker", "Druckerverbindung manuell getrennt.")
+                        }
                     )
+                    Spacer(Modifier.height(18.dp))
+                    DiagnosticLogSection(refreshKey = "$status|$printerStatus")
                     Spacer(Modifier.height(18.dp))
                     Text(
                         "Browser-Modus: Anbieterportal im externen Browser. TRAKUNA speichert keine Passwörter und führt keine Buchung, Labelbestellung oder Druckaktion aus.",

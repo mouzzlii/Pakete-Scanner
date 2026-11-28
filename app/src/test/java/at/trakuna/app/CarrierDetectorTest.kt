@@ -13,6 +13,20 @@ class CarrierDetectorTest {
         assertEquals("DPD Business", CarrierDetector.detect("P123456789012"))
     }
 
+    @Test fun recognizesFourteenDigitDpdParcelNumber() {
+        assertEquals("DPD Business", CarrierDetector.detect("01234567890123"))
+    }
+
+    @Test fun recognizesDpdNumberWithScannerSymbologyPrefix() {
+        assertEquals("DPD Business", CarrierDetector.detect("]C101234567890123"))
+        assertEquals("01234567890123", CarrierDetector.normalize("]C1 01234567890123"))
+    }
+
+    @Test fun recognizesAustrianPostDomesticAndS10Numbers() {
+        assertEquals("Österreichische Post / ELLA", CarrierDetector.detect("1011236513864670170531"))
+        assertEquals("Österreichische Post / ELLA", CarrierDetector.detect("CA482156827AT"))
+    }
+
     @Test fun recognizesUnambiguousUps1zFormat() {
         assertEquals("UPS Business / CampusShip", CarrierDetector.detect("1Z999AA10123456784"))
     }
