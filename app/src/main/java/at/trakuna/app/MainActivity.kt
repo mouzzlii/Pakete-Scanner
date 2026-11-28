@@ -241,7 +241,7 @@ class MainActivity : ComponentActivity() {
 
         
 
-        fun detectCode(raw: String) {
+        fun detectCode(raw: String): String? {
             scannedCode = raw.trim()
             val match = CarrierDetector.detect(scannedCode)
             if (match != null) {
@@ -249,6 +249,7 @@ class MainActivity : ComponentActivity() {
                 selected = match
                 detected = true
                 status = "Anbieter-Kandidat erkannt: $match. Prüfe die Auswahl und öffne das Portal erst mit der Portal-Schaltfläche."
+                return match
             } else {
                 DiagnosticLog.record(this@MainActivity, "WARN", "Scanner", "Barcode erfasst, Anbieter nicht eindeutig zuordenbar.")
                 selected = ""
@@ -258,6 +259,7 @@ class MainActivity : ComponentActivity() {
                 } else {
                     "Anbieter nicht eindeutig erkannt. Bitte Anbieter auswählen."
                 }
+                return null
             }
         }
 
@@ -271,8 +273,8 @@ class MainActivity : ComponentActivity() {
                 }
         }
 
-        fun openPortal() {
-            val portalUrl = CarrierPortals.all.firstOrNull { it.name == selected }?.url
+        fun openPortal(provider: String = selected) {
+            val portalUrl = CarrierPortals.all.firstOrNull { it.name == provider }?.url
             if (portalUrl == null) {
                 status = "Bitte zuerst einen Paketdienst auswählen."
                 DiagnosticLog.record(this@MainActivity, "WARN", "Portal", "Portalöffnung ohne ausgewählten Anbieter angefordert.")
@@ -280,7 +282,7 @@ class MainActivity : ComponentActivity() {
             }
             try {
                 startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(portalUrl)))
-                status = "$selected wird im externen Android-Browser geöffnet. Anmeldung und Vorgänge erfolgen ausschließlich beim Anbieter."
+                status = "$provider wird im externen Android-Browser geöffnet. Anmeldung und Vorgänge erfolgen ausschließlich beim Anbieter."
                 DiagnosticLog.record(this@MainActivity, "INFO", "Portal", "Anbieterportal an Android-Browser übergeben.")
             } catch (_: ActivityNotFoundException) {
                 status = "Kein Browser zum Öffnen des Anbieterportals gefunden."
@@ -326,7 +328,7 @@ class MainActivity : ComponentActivity() {
                         singleLine = true
                     )
                     OutlinedButton(
-                        onClick = { detectCode(scannedCode); openPortal() },
+                        onClick = { detectCode(scannedCode)?.let { openPortal(it) } },
                         enabled = scannedCode.isNotBlank(),
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("ANBIETER ERKENNEN & PORTAL ÖFFNEN") }
