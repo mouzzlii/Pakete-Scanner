@@ -34,3 +34,16 @@
 - Kein stiller Druck und keine automatische Wiederholung.
 - Keine Mehrdruckerverwaltung.
 - main bleibt unverändert; Umsetzung erfolgt ausschließlich im Entwurfszweig und Draft-PR.
+
+
+## Statische Codeprüfung – 28.11.2026
+
+Der Druckpfad wurde zusätzlich gegen die Android-API-Referenz und die im Workflow generierte Kotlin-Implementierung geprüft:
+
+- `MediaSize(..., 3937, 5906)` entspricht gerundet 100 × 150 mm in Android-Mils.
+- Die Raster-Zielgröße 1181 × 1772 Pixel entspricht gerundet 300 dpi für 100 × 150 mm.
+- Die Ausgabe-PDF-Seite nutzt 283 × 425 PDF-Punkte. Das ist die nächstliegende ganzzahlige Punktgröße zu 100 × 150 mm und weicht geringfügig nach unten ab (unter 0,2 %).
+- Der Code verwendet eine einheitliche `minOf`-Skalierung und zentriert den gesamten Seiteninhalt. Es wird nicht absichtlich gestreckt oder beschnitten; vorhandene Ruhebereiche werden zusammen mit dem Etiketteninhalt skaliert.
+- `PdfRenderer.Page.render(..., null, null, RENDER_MODE_FOR_PRINT)` passt laut Android-API-Referenz die gesamte Seite in die Ziel-Bitmap ein, wenn keine Transformationsmatrix angegeben ist: https://developer.android.com/reference/android/graphics/pdf/PdfRenderer.Page#render(android.graphics.Bitmap,android.graphics.Rect,android.graphics.Matrix,int).
+
+**Grenze:** Dies ist eine statische Code- und Maßprüfung. Sie beweist weder, dass ein bestimmter Druckdienst die Attribute übernimmt, noch dass Barcode-/QR-Codes nach dem Druck mit ausreichender Modulbreite, Ruhezone und Kontrast tatsächlich lesbar sind. Dafür bleibt ein Test mit dem späteren physischen Etikettendrucker und einem unabhängigen Scanner zwingend. Es wurde keine Codeänderung vorgenommen.
