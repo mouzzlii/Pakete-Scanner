@@ -230,7 +230,7 @@ jobs:
                   var formType by remember { mutableStateOf("Annahme") }
                   var showForm by remember { mutableStateOf(false) }
                   var code by remember { mutableStateOf("") }
-                  var carrier by remember { mutableStateOf("Unbekannt") }
+                  var carrier by remember { mutableStateOf("Nicht ausgewählt") }
                   var customer by remember { mutableStateOf("") }
                   var message by remember { mutableStateOf("") }
                   var search by remember { mutableStateOf("") }
@@ -242,7 +242,7 @@ jobs:
                   fun openForm(type: String, scanned: String = "") {
                       formType = type
                       code = scanned
-                      carrier = "Unbekannt"
+                      carrier = "Nicht ausgewählt"
                       customer = ""
                       message = ""
                       showForm = true
@@ -452,18 +452,35 @@ jobs:
                                               value = code,
                                               onValueChange = { code = it },
                                               label = {
-                                                  Text(if (formType == "Abholung") "Sendungsnummer oder Abhol-PIN" else "Sendungsnummer / Barcode")
+                                                  Text("Sendungsnummer / Barcode")
                                               },
                                               singleLine = true,
                                               keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
                                           )
                                           if (formType != "Abholung") {
-                                              OutlinedTextField(
-                                                  value = carrier,
-                                                  onValueChange = { carrier = it },
-                                                  label = { Text("Paketdienst (z. B. Post, DHL, DPD, GLS, UPS)") },
-                                                  singleLine = true
-                                              )
+                                              var carrierMenuExpanded by remember { mutableStateOf(false) }
+                                              Box {
+                                                  OutlinedButton(
+                                                      onClick = { carrierMenuExpanded = true },
+                                                      modifier = Modifier.fillMaxWidth()
+                                                  ) {
+                                                      Text("Paketdienst: $carrier")
+                                                  }
+                                                  DropdownMenu(
+                                                      expanded = carrierMenuExpanded,
+                                                      onDismissRequest = { carrierMenuExpanded = false }
+                                                  ) {
+                                                      listOf("Nicht ausgewählt", "Österreichische Post", "DHL", "DPD", "GLS", "UPS").forEach { option ->
+                                                          DropdownMenuItem(
+                                                              text = { Text(option) },
+                                                              onClick = {
+                                                                  carrier = option
+                                                                  carrierMenuExpanded = false
+                                                              }
+                                                          )
+                                                      }
+                                                  }
+                                              }
                                               OutlinedTextField(
                                                   value = customer,
                                                   onValueChange = { customer = it },
