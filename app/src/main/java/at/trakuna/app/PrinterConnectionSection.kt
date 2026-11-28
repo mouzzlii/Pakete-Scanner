@@ -43,12 +43,12 @@ internal fun PrinterConnectionSection(
         Column(Modifier.fillMaxWidth().padding(14.dp)) {
             Text("DRUCKER VERBINDEN", fontWeight = FontWeight.Bold, color = PrinterForest)
             Text(
-                "WLAN/LAN oder Bluetooth verbinden. Die Verbindung bleibt bis zum manuellen Trennen geöffnet. Es werden noch keine Druckdaten gesendet.",
+                "Modellunabhängige Transportverbindung: WLAN/LAN über RAW-TCP und Bluetooth Classic über SPP. Die Verbindung bleibt bis zum manuellen Trennen geöffnet. Noch kein Druckauftrag.",
                 fontSize = 12.sp,
                 color = Color.DarkGray
             )
             Spacer(Modifier.height(8.dp))
-            Text("WLAN / LAN (manuelle IP)", fontWeight = FontWeight.SemiBold)
+            Text("WLAN / LAN – RAW TCP", fontWeight = FontWeight.SemiBold)
             OutlinedTextField(
                 value = host,
                 onValueChange = onHostChange,
@@ -60,7 +60,7 @@ internal fun PrinterConnectionSection(
             OutlinedTextField(
                 value = port,
                 onValueChange = onPortChange,
-                label = { Text("TCP-Port (z. B. 631)") },
+                label = { Text("RAW-TCP-Port (typisch 9100)") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
@@ -68,9 +68,9 @@ internal fun PrinterConnectionSection(
                 Text("MIT NETZWERK-DRUCKER VERBINDEN")
             }
             HorizontalDivider()
-            Text("Bluetooth Classic (SPP)", fontWeight = FontWeight.SemiBold)
+            Text("Bluetooth Classic – SPP", fontWeight = FontWeight.SemiBold)
             Text(
-                "Drucker zuerst in Android koppeln. BLE und proprietäre Profile benötigen später eigene Adapter.",
+                "Drucker zuerst in Android koppeln. SPP funktioniert bei Geräten mit serieller Bluetooth-Schnittstelle; BLE/GATT und herstellerspezifische Profile sind nicht automatisch kompatibel.",
                 fontSize = 11.sp,
                 color = Color.DarkGray
             )
