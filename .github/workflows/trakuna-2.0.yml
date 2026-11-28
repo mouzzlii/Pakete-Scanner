@@ -214,6 +214,12 @@ jobs:
                   return value.filterNot { it.isWhitespace() || it == '-' }
               }
 
+              fun matchingIndices(existingCodes: List<String>, scanned: String): List<Int> {
+                  val target = normalize(scanned)
+                  if (target.isBlank()) return emptyList()
+                  return existingCodes.indices.filter { normalize(existingCodes[it]) == target }
+              }
+
               fun detect(raw: String): CarrierDetection {
                   val code = normalize(raw)
                   if (code.isBlank()) return CarrierDetection(null, false, "Noch kein Barcode erfasst.")
@@ -411,10 +417,7 @@ jobs:
                       }
 
                       if (formType == "Abholung") {
-                          val normalized = TrackingCodeResolver.normalize(entered)
-                          val matches = parcels.indices.filter {
-                              TrackingCodeResolver.normalize(parcels[it].code) == normalized
-                          }
+                          val matches = TrackingCodeResolver.matchingIndices(parcels.map { it.code }, entered)
                           if (matches.isEmpty()) {
                               message = "Keine passende Sendung gefunden. Bitte Code prüfen oder Sendung zuerst erfassen."
                               return
@@ -622,7 +625,7 @@ jobs:
                                               onValueChange = { value ->
                                                    code = value
                                                    val detection = TrackingCodeResolver.detect(value)
-                                                   if (detection.isCertain) carrier = detection.carrier ?: carrier
+                                                   carrier = if (detection.isCertain) detection.carrier ?: "Nicht ausgewählt" else "Nicht ausgewählt"
                                                },
                                               label = {
                                                   Text("Sendungsnummer / Barcode")
@@ -907,6 +910,14 @@ jobs:
                   assertNull(result.carrier)
                   assertFalse(result.isCertain)
                   assertTrue(result.message.contains("SSCC"))
+              }
+
+              @Test fun matchesCodesAfterSafeNormalization() {
+                  assertEquals(listOf(0), TrackingCodeResolver.matchingIndices(listOf("10-ABC 123", "OTHER"), "10ABC123"))
+              }
+
+              @Test fun reportsMultipleNormalizedMatchesInsteadOfChoosingOne() {
+                  assertEquals(listOf(0, 1), TrackingCodeResolver.matchingIndices(listOf("10-ABC", "10 ABC"), "10ABC"))
               }
 
               @Test fun leavesUnknownCodesUnassigned() {
