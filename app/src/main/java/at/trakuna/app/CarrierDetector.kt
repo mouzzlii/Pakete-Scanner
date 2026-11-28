@@ -36,9 +36,9 @@ internal object CarrierDetector {
             // UPS: unambiguous 1Z format.
             Regex("""^1Z[A-Z0-9]{16}$""").matches(compact) -> "UPS Business / CampusShip"
             // Austrian Post domestic parcel numbers are 22 digits and start with 10.
-            Regex("""^10\\d{20}$""").matches(compact) -> "Österreichische Post / ELLA"
+            Regex("""^10\d{20}$""").matches(compact) -> "Österreichische Post / ELLA"
             // An S10 identifier ending in AT was issued by the Austrian postal operator.
-            Regex("""^[A-Z]{2}\\d{9}AT$""").matches(compact) -> "Österreichische Post / ELLA"
+            Regex("""^[A-Z]{2}\d{9}AT$""").matches(compact) -> "Österreichische Post / ELLA"
             // Generic EAN/S10 and other numeric formats remain ambiguous.
             else -> null
         }
