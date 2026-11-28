@@ -104,7 +104,10 @@ class MainActivity : ComponentActivity() {
                 } catch (_: SecurityException) {
                     printerStatus = "Bluetooth-Berechtigung fehlt."
                 }
-            } else printerStatus = "Bluetooth-Zugriff wurde nicht freigegeben."
+            } else {
+                printerStatus = "Bluetooth-Zugriff wurde nicht freigegeben."
+                DiagnosticLog.record(this@MainActivity, "WARN", "Berechtigung", "Bluetooth-Zugriff nicht freigegeben.")
+            }
         }
 
         fun loadPairedPrinters() {
@@ -127,10 +130,12 @@ class MainActivity : ComponentActivity() {
             val validation = TcpEndpointValidator.parse(printerHost, printerPort)
             if (validation is TcpEndpointValidation.Invalid) {
                 printerStatus = validation.reason
+                DiagnosticLog.record(this@MainActivity, "WARN", "Drucker-Netzwerk", validation.reason)
                 return
             }
             val endpoint = (validation as TcpEndpointValidation.Valid).endpoint
             printerStatus = "Prüfe Netzwerk-Endpunkt …"
+            DiagnosticLog.record(this@MainActivity, "INFO", "Drucker-Netzwerk", "Netzwerk-Verbindungstest gestartet.")
             coroutineScope.launch {
                 val result = withContext(Dispatchers.IO) {
                     try {
@@ -148,6 +153,10 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 printerStatus = result
+                val failed = result.contains("nicht erreichbar", true) ||
+                    result.contains("fehlgeschlagen", true) ||
+                    result.contains("Aus Sicherheitsgründen", true)
+                DiagnosticLog.record(this@MainActivity, if (failed) "WARN" else "INFO", "Drucker-Netzwerk", result)
             }
         }
 
@@ -161,6 +170,7 @@ class MainActivity : ComponentActivity() {
                 return
             }
             printerStatus = "Prüfe Bluetooth-SPP-Verbindung …"
+            DiagnosticLog.record(this@MainActivity, "INFO", "Drucker-Bluetooth", "Bluetooth-SPP-Verbindungstest gestartet.")
             coroutineScope.launch {
                 val result = try {
                     withTimeoutOrNull(12_000) {
@@ -170,6 +180,10 @@ class MainActivity : ComponentActivity() {
                     "Bluetooth-Zugriff verweigert. Berechtigung erneut prüfen."
                 }
                 printerStatus = result
+                val failed = result.contains("fehlgeschlagen", true) ||
+                    result.contains("abgebrochen", true) ||
+                    result.contains("verweigert", true)
+                DiagnosticLog.record(this@MainActivity, if (failed) "WARN" else "INFO", "Drucker-Bluetooth", result)
             }
         }
 
@@ -179,10 +193,12 @@ class MainActivity : ComponentActivity() {
             scannedCode = raw.trim()
             val match = CarrierDetector.detect(scannedCode)
             if (match != null) {
+                DiagnosticLog.record(this@MainActivity, "INFO", "Scanner", "Barcode-Muster erkannt; Anbieter-Kandidat zugeordnet.")
                 selected = match
                 detected = true
                 status = "Anbieter-Kandidat erkannt: $match. Prüfe die Auswahl und öffne das Portal erst mit der Portal-Schaltfläche."
             } else {
+                DiagnosticLog.record(this@MainActivity, "WARN", "Scanner", "Barcode erfasst, Anbieter nicht eindeutig zuordenbar.")
                 selected = ""
                 detected = false
                 status = if (Regex("""^872\d{10}$""").matches(scannedCode.uppercase(Locale.ROOT).replace(Regex("""[\s-]"""), ""))) {
@@ -199,6 +215,7 @@ class MainActivity : ComponentActivity() {
                 .addOnSuccessListener { result -> detectCode(result.rawValue.orEmpty()) }
                 .addOnFailureListener {
                     status = "Scan nicht möglich. Code kann auch über einen externen Scanner eingegeben werden."
+                    DiagnosticLog.record(this@MainActivity, "WARN", "Scanner", "Kamera-Scan fehlgeschlagen.")
                 }
         }
 
@@ -206,13 +223,16 @@ class MainActivity : ComponentActivity() {
             val portalUrl = CarrierPortals.all.firstOrNull { it.name == selected }?.url
             if (portalUrl == null) {
                 status = "Bitte zuerst einen Paketdienst auswählen."
+                DiagnosticLog.record(this@MainActivity, "WARN", "Portal", "Portalöffnung ohne ausgewählten Anbieter angefordert.")
                 return
             }
             try {
                 startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(portalUrl)))
                 status = "$selected wird im externen Android-Browser geöffnet. Anmeldung und Vorgänge erfolgen ausschließlich beim Anbieter."
+                DiagnosticLog.record(this@MainActivity, "INFO", "Portal", "Anbieterportal an Android-Browser übergeben.")
             } catch (_: ActivityNotFoundException) {
                 status = "Kein Browser zum Öffnen des Anbieterportals gefunden."
+                DiagnosticLog.record(this@MainActivity, "ERROR", "Portal", "Kein kompatibler Browser zum Öffnen gefunden.")
             }
         }
 
