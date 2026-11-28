@@ -154,6 +154,26 @@ jobs:
           package at.trakuna.app
 
           import android.os.Bundle
+          import android.os.CancellationSignal
+          import android.os.ParcelFileDescriptor
+          import android.graphics.Bitmap
+          import android.graphics.Canvas
+          import android.graphics.Color as AndroidColor
+          import android.graphics.Paint
+          import android.graphics.RectF
+          import android.graphics.pdf.PdfDocument
+          import android.graphics.pdf.PdfRenderer
+          import android.print.PrintAttributes
+          import android.print.PrintDocumentAdapter
+          import android.print.PrintDocumentInfo
+          import android.print.PrintManager
+          import android.print.PrintAttributes.MediaSize
+          import android.print.PrintAttributes.Resolution
+          import android.print.PrintAttributes.Margins
+          import androidx.activity.compose.rememberLauncherForActivityResult
+          import androidx.activity.result.contract.ActivityResultContracts
+          import java.io.File
+          import java.io.FileOutputStream
           import android.content.Intent
           import android.net.Uri
           import androidx.activity.ComponentActivity
@@ -234,6 +254,35 @@ jobs:
                   var customer by remember { mutableStateOf("") }
                   var message by remember { mutableStateOf("") }
                   var search by remember { mutableStateOf("") }
+
+                  val pdfPicker = rememberLauncherForActivityResult(
+                      contract = ActivityResultContracts.OpenDocument()
+                  ) { uri ->
+                      if (uri != null) {
+                          try {
+                              val source = File(cacheDir, "trakuna-label-${System.currentTimeMillis()}.pdf")
+                              contentResolver.openInputStream(uri)?.use { input ->
+                                  source.outputStream().use { output -> input.copyTo(output) }
+                              } ?: throw IllegalStateException("Datei konnte nicht gelesen werden")
+                              val manager = getSystemService(PRINT_SERVICE) as PrintManager
+                              val attributes = PrintAttributes.Builder()
+                                  .setMediaSize(MediaSize("TRAKUNA_100x150", "100 x 150 mm", 3937, 5906))
+                                  .setResolution(Resolution("TRAKUNA_300DPI", "300 dpi", 300, 300))
+                                  .setMinMargins(Margins.NO_MARGINS)
+                                  .build()
+                              manager.print(
+                                  "TRAKUNA Versandetikett",
+                                  PdfLabelPrintAdapter(source) { event -> logEvent(event) },
+                                  attributes
+                              )
+                              logEvent("PDF-Druckauftrag an Android-Drucksystem übergeben")
+                              message = "Android-Druckdialog geöffnet. Drucker und Druckoptionen dort prüfen."
+                          } catch (error: Exception) {
+                              logEvent("PDF-Druckfehler: ${error.javaClass.simpleName}")
+                              message = "Druckvorbereitung fehlgeschlagen. Details stehen im Fehlerprotokoll."
+                          }
+                      }
+                  }
 
                   fun persist() {
                       prefs.edit().putString("parcels", writeParcels(parcels)).apply()
@@ -423,6 +472,11 @@ jobs:
                                   ) { Text("ZURÜCK") }
                                   Spacer(Modifier.height(6.dp))
                                   OutlinedButton(
+                                      onClick = { pdfPicker.launch(arrayOf("application/pdf")) },
+                                      modifier = Modifier.fillMaxWidth()
+                                  ) { Text("VERSANDETIKETT AUS PDF DRUCKEN") }
+                                  Spacer(Modifier.height(6.dp))
+                                  OutlinedButton(
                                       onClick = {
                                           logEvent("Testprotokoll geteilt")
                                           val share = Intent(Intent.ACTION_SEND).apply {
@@ -535,7 +589,93 @@ jobs:
                   }
               }
 
-              private fun writeParcels(items: List<Parcel>): String {
+              private class PdfLabelPrintAdapter(
+              private val source: File,
+              private val log: (String) -> Unit
+          ) : PrintDocumentAdapter() {
+              override fun onLayout(
+                  oldAttributes: PrintAttributes?,
+                  newAttributes: PrintAttributes,
+                  cancellationSignal: CancellationSignal,
+                  callback: LayoutResultCallback,
+                  extras: Bundle?
+              ) {
+                  if (cancellationSignal.isCanceled) {
+                      callback.onLayoutCancelled()
+                      return
+                  }
+                  try {
+                      PdfRenderer(ParcelFileDescriptor.open(source, ParcelFileDescriptor.MODE_READ_ONLY)).use { renderer ->
+                          require(renderer.pageCount == 1) { "Es werden derzeit nur einseitige Versandetiketten unterstützt." }
+                      }
+                      val info = PrintDocumentInfo.Builder("TRAKUNA-100x150.pdf")
+                          .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
+                          .setPageCount(1)
+                          .build()
+                      callback.onLayoutFinished(info, true)
+                  } catch (error: Exception) {
+                      log("Druck-Layoutfehler: ${error.javaClass.simpleName}")
+                      callback.onLayoutFailed("PDF ist ungültig oder enthält nicht genau eine Seite.")
+                  }
+              }
+
+              override fun onWrite(
+                  pages: Array<out android.print.PageRange>,
+                  destination: ParcelFileDescriptor,
+                  cancellationSignal: CancellationSignal,
+                  callback: WriteResultCallback
+              ) {
+                  if (cancellationSignal.isCanceled) {
+                      callback.onWriteCancelled()
+                      return
+                  }
+                  if (pages.none { it.start <= 0 && it.end >= 0 }) {
+                      callback.onWriteFinished(emptyArray())
+                      return
+                  }
+                  var renderer: PdfRenderer? = null
+                  var sourcePage: PdfRenderer.Page? = null
+                  var bitmap: Bitmap? = null
+                  val output = PdfDocument()
+                  try {
+                      renderer = PdfRenderer(ParcelFileDescriptor.open(source, ParcelFileDescriptor.MODE_READ_ONLY))
+                      require(renderer.pageCount == 1) { "Mehrseitige Etiketten werden nicht unterstützt." }
+                      sourcePage = renderer.openPage(0)
+                      bitmap = Bitmap.createBitmap(sourcePage.width, sourcePage.height, Bitmap.Config.ARGB_8888)
+                      sourcePage.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_PRINT)
+
+                      val width = 283
+                      val height = 425
+                      val page = output.startPage(PdfDocument.PageInfo.Builder(width, height, 1).create())
+                      page.canvas.drawColor(AndroidColor.WHITE)
+                      val scale = minOf(width.toFloat() / bitmap.width, height.toFloat() / bitmap.height)
+                      val drawWidth = bitmap.width * scale
+                      val drawHeight = bitmap.height * scale
+                      val left = (width - drawWidth) / 2f
+                      val top = (height - drawHeight) / 2f
+                      val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+                      page.canvas.drawBitmap(bitmap, null, RectF(left, top, left + drawWidth, top + drawHeight), paint)
+                      output.finishPage(page)
+                      if (cancellationSignal.isCanceled) {
+                          callback.onWriteCancelled()
+                          return
+                      }
+                      FileOutputStream(destination.fileDescriptor).use { output.writeTo(it) }
+                      callback.onWriteFinished(arrayOf(android.print.PageRange.ALL_PAGES))
+                      log("PDF-Etikett auf 100x150-mm-Seite aufbereitet und an Drucksystem übergeben")
+                  } catch (error: Exception) {
+                      log("Druck-Schreibfehler: ${error.javaClass.simpleName}")
+                      callback.onWriteFailed("Etikett konnte nicht druckfertig aufbereitet werden.")
+                  } finally {
+                      try { sourcePage?.close() } catch (_: Exception) {}
+                      try { renderer?.close() } catch (_: Exception) {}
+                      try { bitmap?.recycle() } catch (_: Exception) {}
+                      try { output.close() } catch (_: Exception) {}
+                  }
+              }
+          }
+
+          private fun writeParcels(items: List<Parcel>): String {
                   val array = JSONArray()
                   items.forEach { p ->
                       array.put(JSONObject().apply {
