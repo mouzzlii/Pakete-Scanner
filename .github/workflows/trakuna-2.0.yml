@@ -238,6 +238,10 @@ jobs:
                       return CarrierDetection("DPD", false,
                           "Mögliche DPD-Sendungsnummer (14 Ziffern). Bitte Paketdienst ausdrücklich bestätigen.")
                   }
+                  if (code.matches(Regex("[A-Z0-9]{8}")) || code.matches(Regex("[0-9]{11,12}"))) {
+                      return CarrierDetection("GLS", false,
+                          "Mögliche GLS Track-ID (8 alphanumerische Zeichen) oder Paketnummer (11/12 Ziffern). Bitte Paketdienst ausdrücklich bestätigen.")
+                  }
                   return CarrierDetection(null, false,
                       "Paketdienst nicht sicher erkannt. Bitte Paketdienst manuell auswählen.")
               }
@@ -903,6 +907,13 @@ jobs:
                   val result = TrackingCodeResolver.detect("01234567890123")
                   assertEquals("DPD", result.carrier)
                   assertFalse(result.isCertain)
+              }
+
+              @Test fun treatsGlsFormatsAsUnconfirmedCandidates() {
+                  assertEquals("GLS", TrackingCodeResolver.detect("P3L11002").carrier)
+                  assertFalse(TrackingCodeResolver.detect("P3L11002").isCertain)
+                  assertEquals("GLS", TrackingCodeResolver.detect("206200100109").carrier)
+                  assertFalse(TrackingCodeResolver.detect("206200100109").isCertain)
               }
 
               @Test fun doesNotTreatSsccAsCarrier() {
