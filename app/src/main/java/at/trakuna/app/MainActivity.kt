@@ -248,7 +248,7 @@ class MainActivity : ComponentActivity() {
                 DiagnosticLog.record(this@MainActivity, "INFO", "Scanner", "Barcode-Muster erkannt; Anbieter-Kandidat zugeordnet.")
                 selected = match
                 detected = true
-                status = "Anbieter-Kandidat erkannt: $match. Prüfe die Auswahl und öffne das Portal erst mit der Portal-Schaltfläche."
+                status = "Anbieter erkannt: $match. Das passende Anbieterportal wird geöffnet."
                 return match
             } else {
                 DiagnosticLog.record(this@MainActivity, "WARN", "Scanner", "Barcode erfasst, Anbieter nicht eindeutig zuordenbar.")
@@ -266,7 +266,9 @@ class MainActivity : ComponentActivity() {
         fun scan() {
             GmsBarcodeScanning.getClient(this@MainActivity)
                 .startScan()
-                .addOnSuccessListener { result -> detectCode(result.rawValue.orEmpty()) }
+                .addOnSuccessListener { result ->
+                    detectCode(result.rawValue.orEmpty())?.let { provider -> openPortal(provider) }
+                }
                 .addOnFailureListener {
                     status = "Scan nicht möglich. Code kann auch über einen externen Scanner eingegeben werden."
                     DiagnosticLog.record(this@MainActivity, "WARN", "Scanner", "Kamera-Scan fehlgeschlagen.")
