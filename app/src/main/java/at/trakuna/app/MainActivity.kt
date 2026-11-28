@@ -109,7 +109,7 @@ class MainActivity : ComponentActivity() {
                     val adapter = (getSystemService(BLUETOOTH_SERVICE) as android.bluetooth.BluetoothManager).adapter
                     pairedPrinters = adapter?.bondedDevices?.toList()?.map { device -> device to (device.name?.takeIf { it.isNotBlank() } ?: "Bluetooth-Gerät (${device.address})") }?.sortedBy { it.second } ?: emptyList()
                     printerStatus = if (pairedPrinters.isEmpty()) "Keine gekoppelten Bluetooth-Geräte gefunden. Kopple den Drucker zuerst in den Android-Einstellungen."
-                        else "Gekoppelte Geräte geladen. Wähle einen Drucker für den SPP-Verbindungstest."
+                        else "Gekoppelte Geräte geladen. Wähle einen Drucker für die SPP-Verbindung."
                 } catch (_: SecurityException) {
                     printerStatus = "Bluetooth-Berechtigung fehlt."
                 }
@@ -181,12 +181,9 @@ class MainActivity : ComponentActivity() {
         }
 
         fun connectBluetoothSppToDevice(device: BluetoothDevice) {
-            if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    bluetoothPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
-                } else {
-                    printerStatus = "Bluetooth-Berechtigung fehlt. Bitte App-Berechtigungen in Android prüfen."
-                }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                bluetoothPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
                 return
             }
             try { activePrinterConnection?.close() } catch (_: Exception) {}
