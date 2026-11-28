@@ -69,7 +69,14 @@ internal fun PrinterConnectionSection(
                     onClick = { onSelectDiscoveredPrinter(found) },
                     modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
                 ) {
-                    Text("${found.name} – ${found.host}:${found.port} (übernehmen)")
+                    val identity = listOfNotNull(found.metadata.manufacturer, found.metadata.model).joinToString(" ")
+                    Text(
+                        "${found.name} – ${found.metadata.protocolLabel}" +
+                            (identity.takeIf { it.isNotBlank() }?.let { " · $it" } ?: "") +
+                            " · ${found.host}:${found.port}" +
+                            (found.metadata.resourcePath?.let { " · Pfad $it" } ?: "") +
+                            " (übernehmen)"
+                    )
                 }
             }
             if (discoveredPrinters.isEmpty()) {

@@ -16,7 +16,8 @@ internal data class DiscoveredPrinter(
     val name: String,
     val host: String,
     val port: Int,
-    val serviceType: String
+    val serviceType: String,
+    val metadata: PrinterServiceMetadata
 ) {
     val key: String get() = "${host.lowercase()}:$port"
 }
@@ -74,12 +75,14 @@ internal class PrinterDiscovery(
                             override fun onServiceResolved(info: NsdServiceInfo) {
                                 if (closed || scanGeneration != generation) return
                                 val address = info.host ?: return
-                                if (!LocalNetworkAddressPolicy.isAllowed(address)) return
+                                if (!LocalNetworkAddressPolicy.isAllowed(address) || address.isLoopbackAddress) return
+                                val metadata = PrinterServiceMetadataParser.parse(info.serviceType.orEmpty(), info.attributes)
                                 val printer = DiscoveredPrinter(
                                     name = info.serviceName.orEmpty().ifBlank { "Netzwerkdrucker" },
                                     host = address.hostAddress.orEmpty(),
                                     port = info.port,
-                                    serviceType = info.serviceType.orEmpty()
+                                    serviceType = info.serviceType.orEmpty(),
+                                    metadata = metadata
                                 )
                                 if (printer.port in 1..65535 && resolved.add(printer.key)) {
                                     onPrinterFound(printer)
