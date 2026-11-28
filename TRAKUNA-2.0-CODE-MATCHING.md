@@ -11,7 +11,7 @@
 ## Was die Erkennung jetzt unterscheidet
 
 1. **Barcode-Erkennung:** ML Kit liefert den gelesenen Inhalt und das Barcodeformat.
-2. **Code-Normalisierung:** Groß-/Kleinschreibung wird vereinheitlicht; Leerzeichen und Bindestriche werden für Vergleiche entfernt. Der GS1-Scannerpräfix `]C1` und die ausgeschriebene GS1-AI `(00)` werden berücksichtigt.
+2. **Code-Normalisierung:** Groß-/Kleinschreibung wird vereinheitlicht; Leerzeichen und Bindestriche werden für Vergleiche entfernt. Der GS1-Scannerpräfix `]C1` und die GS1-AI `(00)` bzw. `00` werden berücksichtigt; auch Trennzeichen in der Scanner-Ausgabe werden vor dem Parsen entfernt.
 3. **Identifikator-/Paketdiensterkennung:** Nur ausreichend belegte Muster dürfen automatisch vorbelegt werden.
 4. **Sendungszuordnung:** Bei Abholung wird der normalisierte Code exakt mit gespeicherten Sendungen verglichen. Mehrere Treffer führen zu keiner automatischen Statusänderung.
 
@@ -40,7 +40,7 @@
 
 ## Tests und offene Verifikation
 
-- 12 eigenständige Kotlin-Assertions für Normalisierung, Post-Prüfziffer, UPS-Format, DPD-Kandidat, SSCC und unbekannte Codes lokal mit `kotlinc` ausgeführt: **bestanden**.
+- 13 eigenständige Kotlin-Assertions für Normalisierung, Post-Prüfziffer, UPS-Format, DPD-Kandidat, SSCC und unbekannte Codes lokal mit `kotlinc` ausgeführt: **bestanden**.
 - 11 JUnit-Tests sind im Android-Buildworkflow ergänzt und werden dort über `testDebugUnitTest` aufgerufen.
 - Der App-Code-Commit `f14d00dfe3e4af8325f93420bc9c85ec88e44cb1` wurde in GitHub Actions mit Run #215 erfolgreich gebaut. Der Job führte `testDebugUnitTest assembleDebug` aus; APK-Prüfung, Signaturprüfung und Artefakt-Upload waren ebenfalls erfolgreich. Die nachfolgende UPS-Härtung ist ein neuer Commit und benötigt noch einen eigenen erfolgreichen CI-Nachweis.
 - Die 10 JUnit-Tests liefen im erfolgreichen CI-Job mit. Das bestätigt die automatisierten Resolver-Tests, nicht die Erkennung echter Paketetiketten.
