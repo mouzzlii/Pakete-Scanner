@@ -45,8 +45,9 @@ Die Netzwerkprüfung läuft außerhalb des UI-Threads und verwendet ein Verbindu
 
 ## Drucker – aktueller Umfang
 
-- WLAN/LAN: TRAKUNA baut nach manueller Host-/Port-Eingabe eine TCP-Verbindung auf und hält den Socket bis zum manuellen Trennen bzw. bis zum Schließen der App offen.
-- Bluetooth: Anzeige bereits gekoppelter Geräte und Aufbau einer gehaltenen Bluetooth-Classic-SPP-Verbindung; der Nutzer kann sie in der App wieder trennen.
+- WLAN/LAN: modellunabhängiger RAW-TCP-Transport. TRAKUNA baut nach manueller Host-/Port-Eingabe eine TCP-Verbindung auf (Standardport 9100) und hält den Socket bis zum manuellen Trennen bzw. bis zum Schließen der App offen. Der Drucker muss RAW-TCP unterstützen; Port 9100 ist verbreitet, aber nicht universell.
+- Bluetooth: Anzeige bereits gekoppelter Geräte und Aufbau einer gehaltenen Bluetooth-Classic-SPP-Verbindung; der Nutzer kann sie in der App wieder trennen. Der Drucker muss ein serielles SPP-Profil anbieten.
+- Die Transport-Schnittstelle ist herstellerunabhängig und benötigt kein bestimmtes Druckermodell. Sie kann aber nicht automatisch jedes Druckprotokoll oder jedes Bluetooth-Profil übersetzen.
 - Es ist immer nur eine aktive Druckerverbindung vorgesehen; beim Wechsel wird die vorherige Verbindung geschlossen.
 - Beim Verlassen/Beenden der Activity wird die aktive Verbindung geschlossen.
 - Es werden weiterhin keine Druckdaten oder Etiketten gesendet oder erzeugt.
