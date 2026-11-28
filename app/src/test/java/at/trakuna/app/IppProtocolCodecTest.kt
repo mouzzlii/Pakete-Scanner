@@ -46,7 +46,7 @@ class IppProtocolCodecTest {
     }
 
     @Test fun decodesPrinterStateEnumAndBooleanAsTypedValues() {
-        val response = fakeResponse(0, 9, listOf(
+        val response = fakeRawResponse(0, 9, listOf(
             Triple(0x23, "printer-state", byteArrayOf(0, 0, 0, 3)),
             Triple(0x22, "printer-is-accepting-jobs", byteArrayOf(1))
         ))
@@ -57,7 +57,7 @@ class IppProtocolCodecTest {
     }
 
     @Test fun preservesOpaqueBinaryValuesWithoutUtf8Corruption() {
-        val response = fakeResponse(0, 10, listOf(
+        val response = fakeRawResponse(0, 10, listOf(
             Triple(0x30, "printer-config-change-time", byteArrayOf(0, 0xFF.toByte(), 2))
         ))
         val parsed = IppProtocolCodec.parseResponse(response)
@@ -73,7 +73,7 @@ class IppProtocolCodecTest {
             )))
         }
         assertThrows(IllegalArgumentException::class.java) {
-            IppProtocolCodec.parseResponse(fakeResponse(0, 1, listOf(
+            IppProtocolCodec.parseResponse(fakeRawResponse(0, 1, listOf(
                 Triple(0x22, "printer-is-accepting-jobs", byteArrayOf(2))
             )))
         }
