@@ -12,6 +12,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -103,9 +104,10 @@ internal object DiagnosticLog {
 }
 
 @Composable
-internal fun DiagnosticLogSection() {
+internal fun DiagnosticLogSection(refreshKey: String) {
     val context = LocalContext.current
     var events by remember { mutableStateOf(DiagnosticLog.entries(context)) }
+    LaunchedEffect(refreshKey) { events = DiagnosticLog.entries(context) }
 
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(Modifier.fillMaxWidth().padding(14.dp)) {
