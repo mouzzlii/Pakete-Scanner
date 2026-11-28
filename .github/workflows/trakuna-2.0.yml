@@ -11,7 +11,7 @@ on:
       - main
 
 concurrency:
-  group: trakuna-2-build-${{ github.ref }}
+  group: trakuna-2-build-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 permissions:
@@ -276,7 +276,7 @@ jobs:
                       val pin = if (formType == "Annahme") {
                           var candidate: String
                           do {
-                              candidate = SecureRandom().nextInt(100000, 1000000).toString()
+                              candidate = (SecureRandom().nextInt(900000) + 100000).toString()
                           } while (parcels.any { it.pin == candidate })
                           candidate
                       } else ""
