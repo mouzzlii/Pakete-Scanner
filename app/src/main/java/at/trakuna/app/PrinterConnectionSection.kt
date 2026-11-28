@@ -88,4 +88,6 @@ internal fun PrinterConnectionSection(
             Text(status, fontSize = 12.sp)
         }
     }
+    Spacer(Modifier.height(12.dp))
+    DiagnosticLogSection(status = status)
 }
