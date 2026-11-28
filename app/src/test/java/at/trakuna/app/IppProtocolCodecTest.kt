@@ -33,7 +33,7 @@ class IppProtocolCodecTest {
     }
 
     @Test fun parsesTextAndRepeatedAttributeValues() {
-        val response = fakeResponse(0x0000, 7, listOf(
+        val response = fakeTextResponse(0x0000, 7, listOf(
             Triple(0x41, "printer-name", "TRAKUNA Test"),
             Triple(0x44, "document-format-supported", "application/pdf"),
             Triple(0x44, "", "image/pwg-raster")
@@ -68,7 +68,7 @@ class IppProtocolCodecTest {
 
     @Test fun rejectsMalformedTypedValues() {
         assertThrows(IllegalArgumentException::class.java) {
-            IppProtocolCodec.parseResponse(fakeResponse(0, 1, listOf(
+            IppProtocolCodec.parseResponse(fakeTextResponse(0, 1, listOf(
                 Triple(0x23, "printer-state", byteArrayOf(0, 1))
             )))
         }
@@ -88,13 +88,13 @@ class IppProtocolCodecTest {
         }.isSuccess)
     }
 
-    private fun fakeResponse(status: Int, requestId: Int, attributes: List<Triple<Int, String, String>>): ByteArray {
-        return fakeResponse(status, requestId, attributes.map { (tag, name, value) ->
+    private fun fakeTextResponse(status: Int, requestId: Int, attributes: List<Triple<Int, String, String>>): ByteArray {
+        return fakeRawResponse(status, requestId, attributes.map { (tag, name, value) ->
             Triple(tag, name, value.toByteArray(StandardCharsets.UTF_8))
         })
     }
 
-    private fun fakeResponse(status: Int, requestId: Int, attributes: List<Triple<Int, String, ByteArray>>): ByteArray {
+    private fun fakeRawResponse(status: Int, requestId: Int, attributes: List<Triple<Int, String, ByteArray>>): ByteArray {
         val out = ByteArrayOutputStream()
         out.write(byteArrayOf(2, 0, (status ushr 8).toByte(), status.toByte(),
             (requestId ushr 24).toByte(), (requestId ushr 16).toByte(),
