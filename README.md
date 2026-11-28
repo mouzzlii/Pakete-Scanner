@@ -51,6 +51,13 @@ Die Netzwerkprüfung läuft außerhalb des UI-Threads und verwendet ein Verbindu
 - Eine erreichbare TCP-Adresse oder erfolgreiche SPP-Verbindung beweist weder IPP-Unterstützung noch Druckbereitschaft.
 - IPP/IPPS, mDNS/DNS-SD, LPR, BLE/GATT und Druckformatadapter sind noch nicht implementiert.
 
+## Fehlerprotokoll
+
+- Druckerstatusänderungen werden lokal auf dem Android-Gerät protokolliert (maximal 150 Einträge).
+- Das Protokoll zeigt Zeitstempel und Statusmeldungen, markiert erkannte Fehler/Warnungen und kann über die Android-Teilen-Funktion exportiert oder in der App gelöscht werden.
+- IP-Adressen, Bluetooth-MAC-Adressen und lange reine Zahlencodes werden vor dem Speichern maskiert. Es werden keine Druckdaten oder Etiketteninhalte protokolliert.
+- Derzeit umfasst das Protokoll Drucker-Verbindungsstatus; es ist noch kein vollständiges App-/Crash-Reporting.
+
 ## Sicherheits- und Funktionsgrenzen
 
 - Keine Passwörter oder Zugangsdaten in TRAKUNA.
