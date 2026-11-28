@@ -31,6 +31,10 @@ internal fun PrinterConnectionSection(
     port: String,
     status: String,
     pairedPrinters: List<Pair<BluetoothDevice, String>>,
+    discoveredPrinters: List<DiscoveredPrinter>,
+    onDiscoverNetwork: () -> Unit,
+    onStopDiscovery: () -> Unit,
+    onSelectDiscoveredPrinter: (DiscoveredPrinter) -> Unit,
     onHostChange: (String) -> Unit,
     onPortChange: (String) -> Unit,
     onTestNetwork: () -> Unit,
@@ -48,7 +52,31 @@ internal fun PrinterConnectionSection(
                 color = Color.DarkGray
             )
             Spacer(Modifier.height(8.dp))
-            Text("WLAN / LAN – RAW TCP", fontWeight = FontWeight.SemiBold)
+            Text("WLAN / LAN – automatische Suche", fontWeight = FontWeight.SemiBold)
+            Text(
+                "Erkennt Druckerdienste, die sich im lokalen Netzwerk per DNS-SD/mDNS bekannt machen. Nicht alle Drucker senden solche Anzeigen.",
+                fontSize = 11.sp,
+                color = Color.DarkGray
+            )
+            OutlinedButton(onClick = onDiscoverNetwork, modifier = Modifier.fillMaxWidth()) {
+                Text("NETZWERKDRUCKER SUCHEN")
+            }
+            OutlinedButton(onClick = onStopDiscovery, modifier = Modifier.fillMaxWidth()) {
+                Text("NETZWERKSUCHE BEENDEN")
+            }
+            discoveredPrinters.forEach { found ->
+                OutlinedButton(
+                    onClick = { onSelectDiscoveredPrinter(found) },
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                ) {
+                    Text("${found.name} – ${found.host}:${found.port} (übernehmen)")
+                }
+            }
+            if (discoveredPrinters.isEmpty()) {
+                Text("Noch keine Netzwerkdrucker gefunden.", fontSize = 11.sp, color = Color.DarkGray)
+            }
+            HorizontalDivider()
+            Text("RAW-TCP-Verbindung (manuelle Eingabe)", fontWeight = FontWeight.SemiBold)
             OutlinedTextField(
                 value = host,
                 onValueChange = onHostChange,
