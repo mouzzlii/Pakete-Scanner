@@ -42,7 +42,7 @@
 
 - 12 eigenständige Kotlin-Assertions für Normalisierung, Post-Prüfziffer, UPS-Format, DPD-Kandidat, SSCC und unbekannte Codes lokal mit `kotlinc` ausgeführt: **bestanden**.
 - 10 JUnit-Tests sind im Android-Buildworkflow ergänzt und werden dort über `testDebugUnitTest` aufgerufen.
-- Der Branch-Head `f14d00dfe3e4af8325f93420bc9c85ec88e44cb1` wurde in GitHub Actions mit Run #215 erfolgreich gebaut. Der Job führte `testDebugUnitTest assembleDebug` aus; APK-Prüfung, Signaturprüfung und Artefakt-Upload waren ebenfalls erfolgreich.
+- Der App-Code-Commit `f14d00dfe3e4af8325f93420bc9c85ec88e44cb1` wurde in GitHub Actions mit Run #215 erfolgreich gebaut. Der Job führte `testDebugUnitTest assembleDebug` aus; APK-Prüfung, Signaturprüfung und Artefakt-Upload waren ebenfalls erfolgreich.
 - Die 10 JUnit-Tests liefen im erfolgreichen CI-Job mit. Das bestätigt die automatisierten Resolver-Tests, nicht die Erkennung echter Paketetiketten.
 - Installation auf einem realen Android-Gerät, Kameratests und Druckertests sind noch nicht bestätigt.
 - Der Scan- und Zuordnungsablauf muss mit echten, anonymisierten Testetiketten der fünf tatsächlich eingesetzten Paketdienste geprüft werden.
