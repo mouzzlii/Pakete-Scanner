@@ -137,6 +137,7 @@ class MainActivity : ComponentActivity() {
         }
 
         fun connectWifiEndpoint() {
+            val attempt = ++printerConnectionAttempt
             val validation = TcpEndpointValidator.parse(printerHost, printerPort)
             if (validation is TcpEndpointValidation.Invalid) {
                 printerStatus = validation.reason
@@ -144,7 +145,6 @@ class MainActivity : ComponentActivity() {
                 return
             }
             val endpoint = (validation as TcpEndpointValidation.Valid).endpoint
-            val attempt = ++printerConnectionAttempt
             try { activePrinterConnection?.close() } catch (_: Exception) {}
             activePrinterConnection = null
             printerConnected = false
@@ -182,17 +182,17 @@ class MainActivity : ComponentActivity() {
                     printerConnected = false
                     printerStatus = result as String
                 }
-                DiagnosticLog.record(this@MainActivity, if (printerConnected) "INFO" else "WARN", "Drucker-Netzwerk", printerStatus)
+                DiagnosticLog.record(this@MainActivity, if (printerConnected) "INFO" else "WARN", "Drucker-Netzwerk", if (printerConnected) "Netzwerk-Druckerverbindung hergestellt; Zieladresse ausgeblendet." else "Netzwerk-Druckerverbindung fehlgeschlagen; Zieladresse und Systemdetails nicht protokolliert.")
             }
         }
 
         fun connectBluetoothSppToDevice(device: BluetoothDevice) {
+            val attempt = ++printerConnectionAttempt
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
                 checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                 bluetoothPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
                 return
             }
-            val attempt = ++printerConnectionAttempt
             try { activePrinterConnection?.close() } catch (_: Exception) {}
             activePrinterConnection = null
             printerConnected = false
