@@ -35,13 +35,15 @@ internal fun PrinterConnectionSection(
     onPortChange: (String) -> Unit,
     onTestNetwork: () -> Unit,
     onLoadBluetooth: () -> Unit,
-    onTestBluetooth: (BluetoothDevice) -> Unit
+    onTestBluetooth: (BluetoothDevice) -> Unit,
+    isConnected: Boolean,
+    onDisconnect: () -> Unit
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(Modifier.fillMaxWidth().padding(14.dp)) {
             Text("DRUCKER VERBINDEN", fontWeight = FontWeight.Bold, color = PrinterForest)
             Text(
-                "Erste Teststufe: Verbindung prüfen – keine Druckdaten werden gesendet.",
+                "WLAN/LAN oder Bluetooth verbinden. Die Verbindung bleibt bis zum manuellen Trennen geöffnet. Es werden noch keine Druckdaten gesendet.",
                 fontSize = 12.sp,
                 color = Color.DarkGray
             )
@@ -58,12 +60,12 @@ internal fun PrinterConnectionSection(
             OutlinedTextField(
                 value = port,
                 onValueChange = onPortChange,
-                label = { Text("Port (IPP häufig 631)") },
+                label = { Text("TCP-Port (z. B. 631)") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
             OutlinedButton(onClick = onTestNetwork, modifier = Modifier.fillMaxWidth()) {
-                Text("NETZWERK-VERBINDUNG TESTEN")
+                Text("MIT NETZWERK-DRUCKER VERBINDEN")
             }
             HorizontalDivider()
             Text("Bluetooth Classic (SPP)", fontWeight = FontWeight.SemiBold)
@@ -80,12 +82,18 @@ internal fun PrinterConnectionSection(
                     onClick = { onTestBluetooth(device) },
                     modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
                 ) {
-                    Text("$displayName – SPP testen")
+                    Text("$displayName – per SPP verbinden")
                 }
             }
             Spacer(Modifier.height(8.dp))
             Text("Druckerstatus", fontWeight = FontWeight.SemiBold, color = PrinterForest)
+            Text(if (isConnected) "● Verbunden" else "○ Nicht verbunden", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (isConnected) PrinterForest else Color.DarkGray)
             Text(status, fontSize = 12.sp)
+            if (isConnected) {
+                OutlinedButton(onClick = onDisconnect, modifier = Modifier.fillMaxWidth()) {
+                    Text("DRUCKER TRENNEN")
+                }
+            }
         }
     }
 }
