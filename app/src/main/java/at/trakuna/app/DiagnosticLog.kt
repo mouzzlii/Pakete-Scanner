@@ -12,7 +12,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -104,26 +103,9 @@ internal object DiagnosticLog {
 }
 
 @Composable
-internal fun DiagnosticLogSection(status: String) {
+internal fun DiagnosticLogSection() {
     val context = LocalContext.current
     var events by remember { mutableStateOf(DiagnosticLog.entries(context)) }
-
-    LaunchedEffect(status) {
-        if (status.isNotBlank()) {
-            val failure = status.contains("fehl", ignoreCase = true) ||
-                status.contains("nicht erreichbar", ignoreCase = true) ||
-                status.contains("abgebrochen", ignoreCase = true) ||
-                status.contains("verweigert", ignoreCase = true) ||
-                status.contains("Fehler", ignoreCase = true)
-            DiagnosticLog.record(
-                context,
-                if (failure) "WARN" else "INFO",
-                "Drucker",
-                status
-            )
-            events = DiagnosticLog.entries(context)
-        }
-    }
 
     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(Modifier.fillMaxWidth().padding(14.dp)) {
