@@ -213,6 +213,10 @@ jobs:
           )
 
           class MainActivity : ComponentActivity() {
+              companion object {
+                  @Volatile private var crashHandlerInstalled = false
+              }
+
               private fun logEvent(event: String) {
                   val prefs = getSharedPreferences("trakuna_diagnostics", MODE_PRIVATE)
                   val previous = prefs.getString("events", "") ?: ""
@@ -248,11 +252,14 @@ jobs:
 
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
-                  val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
-                  if (previousHandler != null) {
-                      Thread.setDefaultUncaughtExceptionHandler { thread, error ->
-                          logCrash(error)
-                          previousHandler.uncaughtException(thread, error)
+                  if (!crashHandlerInstalled) {
+                      val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
+                      if (previousHandler != null) {
+                          Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+                              logCrash(error)
+                              previousHandler.uncaughtException(thread, error)
+                          }
+                          crashHandlerInstalled = true
                       }
                   }
                   logEvent("App gestartet")
